@@ -1,7 +1,5 @@
 import streamlit as st
 import time
-import os
-from dotenv import load_dotenv
 from api import (
     signup,
     login,
@@ -9,10 +7,7 @@ from api import (
     get_recommendations,
     add_to_watchlist,
     rate_movie,
-    get_watchlist,
-    get_all_movies,
-    get_popular_movies_with_posters,
-    TMDB_API_KEY
+    get_watchlist
 )
 
 # ============================================================
@@ -125,8 +120,6 @@ if "page" not in st.session_state:
     st.session_state.page = "home" if not st.session_state.token else "recommendations"
 if "search_results" not in st.session_state:
     st.session_state.search_results = []
-if "popular_movies_loaded" not in st.session_state:
-    st.session_state.popular_movies_loaded = False
 
 # ============================================================
 # HELPER FUNCTIONS
@@ -165,84 +158,6 @@ def render_movie_card(movie, show_rating=True, show_watchlist=True):
                 add_to_watchlist(st.session_state.token, movie["movie_id"])
                 st.toast("✅ Added to watchlist!", icon="📌")
                 st.rerun()
-
-
-def render_movie_card_with_poster(movie, movie_id=None, allow_watchlist=True):
-    """Render a movie card with poster image"""
-    col_poster, col_info = st.columns([1, 2])
-    
-    with col_poster:
-        poster_url = movie.get('poster_url')
-        if poster_url:
-            st.image(poster_url, width=150)
-        else:
-            st.markdown(
-                "<div style='background: #16213e; width: 150px; height: 225px; display: flex; align-items: center; justify-content: center; border-radius: 8px; border: 1px solid #e94560; color: #999;'>"
-                "No Poster<br/>Available"
-                "</div>",
-                unsafe_allow_html=True
-            )
-    
-    with col_info:
-        # Title and rating
-        title = movie.get('title', 'Unknown')
-        st.markdown(
-            f"<h3 style='color: #ff6b6b; margin: 0;'>{title}</h3>",
-            unsafe_allow_html=True
-        )
-        
-        # Genres
-        genres = movie.get('genres', '')
-        if genres:
-            genres_list = genres.split('|') if isinstance(genres, str) else []
-            genre_html = "".join([f"<span class='genre-tag'>{g.strip()}</span>" for g in genres_list[:3]])
-            st.markdown(f"<div style='margin: 10px 0;'>{genre_html}</div>", unsafe_allow_html=True)
-        
-        # Rating display
-        if 'avg_rating' in movie:
-            avg_rating = movie.get('avg_rating', 0)
-            rating_count = movie.get('rating_count', 0)
-            st.markdown(
-                f"<div style='margin: 10px 0;'>"
-                f"<span class='rating-badge'>⭐ {avg_rating}/5</span>"
-                f"<span class='stat-badge'>{rating_count} ratings</span>"
-                f"</div>",
-                unsafe_allow_html=True
-            )
-        elif 'rating' in movie:
-            rating = movie.get('rating', 0)
-            st.markdown(
-                f"<div style='margin: 10px 0;'>"
-                f"<span class='rating-badge'>⭐ {rating:.1f}/10</span>"
-                f"</div>",
-                unsafe_allow_html=True
-            )
-        
-        # Overview
-        overview = movie.get('overview', '')
-        if overview:
-            st.markdown(f"<p style='color: #bbb; font-size: 0.9em; margin: 10px 0;'>{overview[:150]}...</p>", unsafe_allow_html=True)
-        
-        # Action buttons
-        if allow_watchlist and st.session_state.token and movie_id:
-            col1, col2 = st.columns(2)
-            
-            with col1:
-                if st.button("📌 Add to Watchlist", key=f"add_poster_{movie_id}"):
-                    add_to_watchlist(st.session_state.token, movie_id)
-                    st.toast("✅ Added!", icon="📌")
-            
-            with col2:
-                rating = st.select_slider(
-                    "Rate",
-                    options=[0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0],
-                    value=3.0,
-                    key=f"rate_poster_{movie_id}"
-                )
-                if st.button("⭐ Rate", key=f"submit_poster_{movie_id}"):
-                    rate_movie(st.session_state.token, movie_id, rating)
-                    st.toast(f"✅ Rated {rating}!", icon="⭐")
-
 
 def render_rating_section(movie):
     """Render movie rating section"""
@@ -340,8 +255,46 @@ if st.session_state.token:
                 
                 for idx, movie in enumerate(recommendations):
                     with st.container():
-                        st.markdown(f"#### {idx + 1}. {movie['title']}", )
-                        render_movie_card_with_poster(movie, movie.get('movie_id'), allow_watchlist=True)
+                        col_movie, col_rating = st.columns([3, 1])
+                        
+                        with col_movie:
+                            st.markdown(
+                                f"<div class='movie-card'>"
+                                f"<h3 style='color: #ff6b6b;'>{idx + 1}. {movie['title']}</h3>"
+                                f"<p style='color: #bbb; margin: 8px 0;'>Genres: {movie.get('genres', 'N/A')}</p>"
+                                f"</div>",
+                                unsafe_allow_html=True
+                            )
+                        
+                        with col_rating:
+                            st.markdown(
+                                f"<div style='text-align: center;'>"
+                                f"<div class='rating-badge' style='font-size: 1.2em;'>{movie['avg_rating']} ⭐</div>"
+                                f"<div class='stat-badge' style='display: block; margin-top: 8px;'>{movie['rating_count']} ratings</div>"
+                                f"</div>",
+                                unsafe_allow_html=True
+                            )
+                        
+                        col_action1, col_action2, col_action3 = st.columns(3)
+                        
+                        with col_action1:
+                            if st.button("📌 Add to Watchlist", key=f"add_wl_{movie['movie_id']}"):
+                                add_to_watchlist(st.session_state.token, movie["movie_id"])
+                                st.toast("✅ Added to watchlist!", icon="📌")
+                        
+                        with col_action2:
+                            rating = st.select_slider(
+                                "Rate",
+                                options=[0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0],
+                                value=3.0,
+                                key=f"rating_{movie['movie_id']}"
+                            )
+                        
+                        with col_action3:
+                            if st.button("✅ Submit Rating", key=f"submit_{movie['movie_id']}"):
+                                rate_movie(st.session_state.token, movie["movie_id"], rating)
+                                st.toast(f"✅ Rated {rating} stars!", icon="⭐")
+                        
                         st.divider()
             else:
                 st.info("📭 No recommendations found. Try rating some movies first!")
@@ -376,97 +329,30 @@ if st.session_state.token:
                     st.success(f"✅ Found {len(movies)} movie(s)")
                     st.markdown("")
                     
-                    for idx, movie in enumerate(movies):
+                    for movie in movies:
                         with st.container():
-                            render_movie_card_with_poster(movie, movie.get('movie_id'), allow_watchlist=True)
+                            col_info, col_actions = st.columns([3, 1])
+                            
+                            with col_info:
+                                st.markdown(
+                                    f"<div class='movie-card'>"
+                                    f"<h3 style='color: #ff6b6b;'>{movie['title']}</h3>"
+                                    f"<p style='color: #bbb;'>Genres: {movie.get('genres', 'N/A')}</p>"
+                                    f"</div>",
+                                    unsafe_allow_html=True
+                                )
+                            
+                            with col_actions:
+                                if st.button("📌 Add", key=f"search_add_{movie['movie_id']}"):
+                                    add_to_watchlist(st.session_state.token, movie["movie_id"])
+                                    st.toast("✅ Added to watchlist!", icon="📌")
+                            
                             st.divider()
                 else:
                     st.warning(f"❌ No movies found for '{search_query}'")
             
             except Exception as e:
                 st.error(f"❌ Search error: {str(e)}")
-        
-        else:
-            # Show 20 movie preview when no search
-            st.markdown("#### 🎬 Browse Popular Movies")
-            st.markdown("<p style='color: #999; margin-bottom: 20px;'>Browse from a collection of popular movies</p>", unsafe_allow_html=True)
-            
-            if st.button("🔄 Load Popular Movies", key="load_popular"):
-                st.session_state.popular_movies_loaded = True
-            
-            if st.session_state.get("popular_movies_loaded", False):
-                try:
-                    with st.spinner("Loading popular movies..."):
-                        popular_movies = get_popular_movies_with_posters(20)
-                    
-                    if popular_movies:
-                        st.success(f"✅ Loaded {len(popular_movies)} popular movies!")
-                        st.markdown("")
-                        
-                        # Display in grid format (3 columns)
-                        cols = st.columns(3)
-                        
-                        for idx, movie in enumerate(popular_movies):
-                            with cols[idx % 3]:
-                                with st.container():
-                                    # Movie poster
-                                    poster_url = movie.get('poster_url')
-                                    if poster_url:
-                                        st.markdown(
-                                            f"<div style='text-align: center;'><img src='{poster_url}' width='150' style='border-radius: 8px;'/></div>",
-                                            unsafe_allow_html=True
-                                        )
-                                    else:
-                                        st.markdown(
-                                            "<div style='display: flex; justify-content: center;'><div style='background: #16213e; width: 150px; height: 225px; display: flex; align-items: center; justify-content: center; border-radius: 8px; border: 1px solid #e94560; color: #999;'>No Poster</div></div>",
-                                            unsafe_allow_html=True
-                                        )
-                                    
-                                    # Movie title and rating
-                                    st.markdown(
-                                        f"<p style='color: #ff6b6b; font-weight: bold; margin: 10px 0; text-align: center;'>{movie['title']}</p>",
-                                        unsafe_allow_html=True
-                                    )
-                                    
-                                    # Rating
-                                    rating = movie.get('rating', 0)
-                                    st.markdown(
-                                        f"<div style='text-align: center; color: #fff;'>⭐ {rating:.1f}/10</div>",
-                                        unsafe_allow_html=True
-                                    )
-                                    
-                                    # Overview (short)
-                                    overview = movie.get('overview', '')
-                                    if overview:
-                                        st.markdown(
-                                            f"<p style='color: #bbb; font-size: 0.8em; text-align: center;'>{overview[:80]}...</p>",
-                                            unsafe_allow_html=True
-                                        )
-                    else:
-                        st.warning("⚠️ Could not load popular movies")
-                        if not TMDB_API_KEY or len(TMDB_API_KEY.strip()) == 0:
-                            st.error("❌ TMDB API Key is not configured!")
-                            st.markdown("""
-                            **To enable movie posters:**
-                            1. Get a free API key: https://www.themoviedb.org/settings/api
-                            2. Add to `frontend/.env`:
-                               ```
-                               TMDB_API_KEY=your_key_here
-                               ```
-                            3. Restart the app
-                            """)
-                        else:
-                            st.info("""
-                            **Possible issues:**
-                            - Invalid API key
-                            - Rate limit exceeded
-                            - Network connectivity issue
-                            - Check console for detailed error logs
-                            """)
-                
-                except Exception as e:
-                    st.error(f"❌ Error loading popular movies")
-                    st.info(f"Check the console for error details. Error: {str(e)}")
     
     # ========================================================
     # TAB 3: WATCHLIST
@@ -487,7 +373,13 @@ if st.session_state.token:
                 
                 for movie in watchlist:
                     with st.container():
-                        render_movie_card_with_poster(movie, movie.get('movie_id'), allow_watchlist=False)
+                        st.markdown(
+                            f"<div class='movie-card'>"
+                            f"<h3 style='color: #ff6b6b;'>{movie['title']}</h3>"
+                            f"<p style='color: #bbb;'>Genres: {movie.get('genres', 'N/A')}</p>"
+                            f"</div>",
+                            unsafe_allow_html=True
+                        )
                         
                         col_rate, col_remove = st.columns(2)
                         
@@ -526,24 +418,6 @@ if st.session_state.token:
         st.markdown("- 🎨 **Theme**: Dark Mode (Professional)")
         st.markdown("- 🔔 **Notifications**: Enabled")
         st.markdown("- 📊 **Recommendations**: Based on Popularity")
-        
-        st.markdown("#### API Configuration")
-        
-        # Check TMDB API Key status
-        if TMDB_API_KEY and len(TMDB_API_KEY) > 0:
-            st.success(f"✅ **TMDB API Key**: Configured ({len(TMDB_API_KEY)} characters)")
-            st.markdown("Movie posters should load from TMDB database")
-        else:
-            st.warning("⚠️ **TMDB API Key**: Not configured")
-            st.markdown("""
-            To see movie posters:
-            1. Get a free API key from: https://www.themoviedb.org/settings/api
-            2. Add it to `frontend/.env`:
-               ```
-               TMDB_API_KEY=your_key_here
-               ```
-            3. Restart the app
-            """)
         
         st.markdown("---")
         
