@@ -166,7 +166,8 @@ def get_recommendations(token: str) -> List[Dict]:
             timeout=REQUEST_TIMEOUT
         )
         handle_response(response)
-        return response.json()
+        data = response.json()
+        return data.get("must_watch", []) if isinstance(data, dict) else data
     except requests.exceptions.Timeout:
         raise APIError("Recommendations timeout")
     except requests.exceptions.ConnectionError:

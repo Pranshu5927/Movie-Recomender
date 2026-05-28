@@ -269,8 +269,8 @@ if st.session_state.token:
                         with col_rating:
                             st.markdown(
                                 f"<div style='text-align: center;'>"
-                                f"<div class='rating-badge' style='font-size: 1.2em;'>{movie['avg_rating']} ⭐</div>"
-                                f"<div class='stat-badge' style='display: block; margin-top: 8px;'>{movie['rating_count']} ratings</div>"
+                                f"<div class='rating-badge' style='font-size: 1.2em;'>{movie['score']} ⭐</div>"
+                                f"<div class='stat-badge' style='display: block; margin-top: 8px;'>{movie['vote_count']} ratings</div>"
                                 f"</div>",
                                 unsafe_allow_html=True
                             )

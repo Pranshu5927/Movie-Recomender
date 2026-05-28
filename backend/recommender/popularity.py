@@ -53,8 +53,9 @@ def get_popular_recommendations(user_id):
                 "movie_id": row.movie_id,
                 "title": row.title,
                 "genres": row.genres,
-                "avg_rating": round(float(row.avg_rating), 2),
-                "rating_count": row.rating_count
+                "score": round(float(row.avg_rating), 2),
+                "vote_count": row.rating_count,
+                "recommendation_source": "popularity"
             })
 
     return recommendations
