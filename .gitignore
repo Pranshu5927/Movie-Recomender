@@ -1,0 +1,17 @@
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.env
+*.env
+venv/
+.venv/
+node_modules/
+dist/
+build/
+.DS_Store
+.ipynb_checkpoints/
+*.log
+*.sqlite3
+/data/*.csv
+/data/*.parquet
