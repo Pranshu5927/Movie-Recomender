@@ -3,7 +3,7 @@ from recommender.popularity import (
 )
 
 from recommender.personalized_content import (
-    get_personalized_content_recommendations
+    get_personalized_recommendations
 )
 
 from recommender.collaborative import (
@@ -14,6 +14,9 @@ from recommender.content_based import (
     get_similar_movies
 )
 
+from recommender.hybrid import (
+    get_hybrid_recommendations
+)
 
 # ---------------------------------
 # HOMEPAGE RECOMMENDATIONS
@@ -36,7 +39,7 @@ def get_homepage_recommendations(
     # PERSONALIZED CONTENT
     # ---------------------------------
     personalized_movies = (
-        get_personalized_content_recommendations(
+        get_personalized_recommendations(
             user_id
         )
     )
@@ -51,6 +54,14 @@ def get_homepage_recommendations(
         )
     )
 
+    # ---------------------------------
+    # HYBRID MODEL
+    # ---------------------------------
+    hybrid_movies = (
+        get_hybrid_recommendations(
+            user_id
+        )
+    )
 
     return {
 
@@ -75,6 +86,13 @@ def get_homepage_recommendations(
             "title": "👥 Users Also Liked",
 
             "movies": collaborative_movies
+        },
+
+        "hybrid": {
+
+            "title": "🔄 Hybrid Recommendations",
+
+            "movies": hybrid_movies
         }
     }
 
