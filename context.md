@@ -1,21 +1,3 @@
-Here’s a strong `context.md` draft you can place at the root of your project. It documents:
-
-* project vision
-* architecture
-* current implementation
-* recommender systems
-* roadmap
-* technical decisions
-* future AI plans
-
-This will become incredibly valuable later when:
-
-* adding contributors
-* debugging
-* scaling
-* deploying
-* preparing portfolio documentation
-
 # Movie Recommender System — Project Context
 
 # Vision
@@ -61,12 +43,18 @@ The project is intentionally being built in layers to learn:
 
 Current:
 
-* Streamlit
+* React 18
+* Vite 5
+* React Router DOM v6
+* Axios
+
+Prototype (kept for reference):
+
+* Streamlit (`frontend/`)
 
 Planned:
 
-* React
-* Next.js
+* Next.js (optional — for SSR/SEO)
 
 ---
 
@@ -120,7 +108,28 @@ movie-recommender/
 │   ├── services/
 │   ├── utils/
 │
-├── frontend/
+├── frontend/                  # Streamlit prototype (Python)
+├── frontend-react/            # React app (current)
+│
+│   ├── src/
+│   │   ├── api/api.js
+│   │   ├── components/
+│   │   │   ├── HeroBanner.jsx
+│   │   │   ├── MovieCard.jsx
+│   │   │   ├── MovieModal.jsx
+│   │   │   ├── MovieRow.jsx
+│   │   │   ├── Navbar.jsx
+│   │   │   └── ProtectedRoute.jsx
+│   │   ├── context/AuthContext.jsx
+│   │   ├── pages/
+│   │   │   ├── Auth.jsx
+│   │   │   ├── Home.jsx
+│   │   │   ├── Search.jsx
+│   │   │   └── Watchlist.jsx
+│   │   └── utils/movieUtils.js
+│   ├── index.html
+│   └── vite.config.js
+│
 ├── data/
 ├── notebooks/
 ├── docker/
@@ -617,26 +626,30 @@ Future:
 
 ---
 
-# Frontend Plans
+# Frontend
 
-Current:
+Current (React — `frontend-react/`):
 
-* Streamlit
+* React 18 + Vite 5
+* React Router DOM v6 for client-side routing
+* Axios for API communication
+* AuthContext for JWT session management
+* Netflix-style homepage (HeroBanner, MovieRow, MovieCard)
+* MovieModal for movie detail overlay
+* Auth page (login / sign up)
+* Search page
+* Watchlist page
+* ProtectedRoute for guarding authenticated routes
 
-Planned:
+Remaining frontend work:
 
-* React
-* Next.js
-* Netflix-style UI
-
-Features planned:
-
-* horizontal movie carousels
-* movie details page
-* hover previews
-* recommendation sections
-* semantic AI search
+* hover previews / trailer embeds
+* semantic AI search bar
 * conversational recommender chatbot
+
+Planned (optional):
+
+* Next.js migration for SSR/SEO
 
 ---
 

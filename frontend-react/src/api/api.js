@@ -1,13 +1,7 @@
 import axios from 'axios'
 
-// In development: Vite proxies /api → localhost:8000 (no CORS needed)
-// In production: set VITE_API_BASE_URL to your Railway backend URL
-const BASE_URL = import.meta.env.VITE_API_BASE_URL
-  ? `${import.meta.env.VITE_API_BASE_URL}`
-  : '/api'
-
 const api = axios.create({
-  baseURL: BASE_URL,
+  baseURL: '/api',
   timeout: 30000,
 })
 

@@ -1,6 +1,4 @@
-import os
 from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
 
 from api.auth import router as auth_router
 from api.users import router as users_router
@@ -12,17 +10,6 @@ from api.recommendations import (
 )
 
 app = FastAPI()
-
-# Allow requests from the frontend (set FRONTEND_ORIGIN in production env)
-FRONTEND_ORIGIN = os.getenv("FRONTEND_ORIGIN", "*")
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=[FRONTEND_ORIGIN] if FRONTEND_ORIGIN != "*" else ["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
 
 
 # ---------------------------------
