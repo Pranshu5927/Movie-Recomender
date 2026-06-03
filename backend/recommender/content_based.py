@@ -3,6 +3,8 @@ from recommender.engines.content_engine import (
     similarity
 )
 
+from recommender.utils import normalize_scores
+
 
 def get_similar_movies(movie_title):
 
@@ -35,8 +37,20 @@ def get_similar_movies(movie_title):
             ),
             "title": recommended_movie["title"],
             "genres": recommended_movie["genres"],
-            "score": round(float(movie[1]), 4),
-            "recommendation_source": "content_based"
+
+            "score": float(movie[1]),
+
+            "recommendation_source": "content_based",
+
+            "vote_count": None,
+
+            "reasons": [
+                "Similar content and themes"
+            ],
+
+            "metadata": {}
         })
+
+    recommendations = normalize_scores(recommendations)
 
     return recommendations

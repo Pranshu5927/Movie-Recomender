@@ -14,10 +14,11 @@ A production-style movie recommendation platform inspired by Netflix/Spotify. Bu
 3. Collaborative filtering ✅
 4. Hybrid recommendation system ✅
 5. Semantic embeddings + search ✅
-6. Conversational AI recommender agent 🚧 (scaffolded, not implemented)
-7. Deployment pipeline 🔜
+6. AI recommendation engine (LLM query parsing + re-ranking) ✅
+7. Conversational AI recommender (multi-turn chat with memory) ✅
+8. Deployment pipeline 🔜
 
-Learning goals: backend engineering, recommender systems, ML systems, vector search, MLOps, full-stack, production deployment.
+Learning goals: backend engineering, recommender systems, ML systems, vector search, LLM integration, full-stack, production deployment.
 
 ---
 
@@ -31,6 +32,7 @@ Learning goals: backend engineering, recommender systems, ML systems, vector sea
 - **scikit-learn** (TF-IDF, TruncatedSVD, cosine_similarity)
 - **sentence-transformers** (`all-MiniLM-L6-v2` — semantic embeddings)
 - **NLTK** (PorterStemmer for text normalization)
+- **openai** (GPT-4.1-mini — query parsing, re-ranking, explanation generation)
 - **python-jose** (JWT encoding/decoding)
 - **passlib[bcrypt]** (password hashing)
 - **python-dotenv** (env var loading)
@@ -56,84 +58,94 @@ Learning goals: backend engineering, recommender systems, ML systems, vector sea
 ```
 movie-recommender/
 ├── backend/
-│   ├── main.py                          # FastAPI app entry point
-│   ├── .env                             # Secrets (DATABASE_PASSWORD, SECRET_KEY, etc.)
-│   ├── api/                             # HTTP route handlers
-│   │   ├── auth.py
-│   │   ├── users.py
-│   │   ├── movies.py
-│   │   ├── ratings.py
-│   │   ├── watchlist.py
-│   │   ├── recommendations.py
-│   │   └── semantic.py
+│   ├── main.py                              # FastAPI app entry point — registers all routers
+│   ├── .env                                 # Secrets (DATABASE_PASSWORD, SECRET_KEY, OPENAI_API_KEY)
+│   ├── api/                                 # HTTP route handlers
+│   │   ├── auth.py                          # POST /auth/signup, /auth/login
+│   │   ├── users.py                         # GET /me
+│   │   ├── movies.py                        # GET /movies, /movies/search
+│   │   ├── ratings.py                       # POST /rate
+│   │   ├── watchlist.py                     # POST/GET/DELETE /watchlist/*
+│   │   ├── recommendations.py               # GET /recommendations, /recommendations/content
+│   │   ├── semantic.py                      # GET /search/semantic
+│   │   ├── ai.py                            # GET /ai/recommend
+│   │   └── chat.py                          # POST /chat/
 │   ├── db/
-│   │   └── database.py                  # SQLAlchemy engine + SessionLocal
-│   ├── models/                          # (directory exists, ORM models if added later)
-│   ├── schemas/                         # Pydantic request/response models
-│   │   ├── auth.py
-│   │   ├── rating.py
-│   │   └── watchlist.py
+│   │   └── database.py                      # SQLAlchemy engine + SessionLocal + DATABASE_URL
+│   ├── models/                              # (reserved for ORM models)
+│   ├── schemas/                             # Pydantic request/response models
+│   │   ├── auth.py                          # UserSignup, UserLogin
+│   │   ├── rating.py                        # RatingCreate
+│   │   ├── watchlist.py                     # WatchlistCreate
+│   │   └── recommendation.py               # Recommendation (unified movie object schema)
 │   ├── utils/
-│   │   └── auth.py                      # JWT decode + get_current_user dependency
-│   ├── recommender/                     # All recommendation algorithms
+│   │   └── auth.py                          # JWT decode + get_current_user dependency
+│   ├── recommender/                         # All recommendation algorithms
 │   │   ├── popularity.py
 │   │   ├── content_based.py
 │   │   ├── personalized_content.py
 │   │   ├── collaborative.py
 │   │   ├── hybrid.py
+│   │   ├── utils.py                         # normalize_scores() shared helper
 │   │   └── engines/
-│   │       └── content_engine.py        # TF-IDF + cosine similarity pipeline
-│   ├── services/                        # Orchestration layer
-│   │   ├── recommendation_service.py
-│   │   └── semantic_service.py
-│   ├── embeddings/                      # Semantic search layer
-│   │   ├── embedding_service.py         # SentenceTransformer singleton
-│   │   └── semantic_search.py           # Embedding load + cosine search
+│   │       └── content_engine.py            # TF-IDF + cosine similarity pipeline (runs on import)
+│   ├── services/                            # Orchestration layer
+│   │   ├── recommendation_service.py        # Homepage assembly
+│   │   └── semantic_service.py              # Thin wrapper over semantic_search
+│   ├── embeddings/                          # Semantic search layer
+│   │   ├── embedding_service.py             # SentenceTransformer singleton
+│   │   └── semantic_search.py               # Embedding load + brute-force cosine search
 │   ├── explainability/
-│   │   └── recommendation_explainer.py  # Human-readable reason generation
-│   ├── agents/                          # 🚧 Conversational AI agent (all files empty)
-│   │   ├── chatbot.py
-│   │   ├── prompts.py
-│   │   ├── recommendation_agent.py
-│   │   └── schemas.py
-│   └── scripts/                         # One-time data seeding / setup
+│   │   └── recommendation_explainer.py      # Rule-based human-readable reason generation
+│   ├── ai/                                  # LLM-powered AI recommendation layer
+│   │   ├── schemas.py                       # ParsedMovieQuery, AIRecommendationResponse
+│   │   ├── llm_service.py                   # Single OpenAI wrapper (gpt-4.1-mini)
+│   │   ├── query_parser.py                  # LLM: raw query → ParsedMovieQuery
+│   │   ├── recommendation_pipeline.py       # retrieve_candidates() + run_recommendation_pipeline()
+│   │   ├── reranker.py                      # LLM: reorder candidates by relevance
+│   │   └── explanation_generator.py         # LLM: write 2-3 sentence explanation
+│   ├── agents/                              # Conversational AI agent layer
+│   │   ├── schemas.py                       # ChatMessage, ChatRequest, ChatResponse
+│   │   ├── prompts.py                       # SYSTEM_PROMPT, INTENT_EXTRACTION_PROMPT
+│   │   ├── chatbot.py                       # understand_user_intent() — collapses history to query
+│   │   └── recommendation_agent.py          # handle_chat() — orchestrates full chat turn
+│   └── scripts/                             # One-time data seeding / setup
 │       ├── seed_movies.py
 │       ├── seed_ratings.py
 │       ├── seed_tags.py
 │       ├── generate_movie_embeddings.py
 │       └── test_db_connection.py
-├── frontend-react/                      # React SPA (active frontend)
-│   ├── vite.config.js
+├── frontend-react/                          # React SPA (active frontend)
+│   ├── vite.config.js                       # Port 3000, proxy /api → :8000
 │   ├── package.json
 │   └── src/
 │       ├── api/
-│       │   └── api.js                   # Axios client + all API groups
+│       │   └── api.js                       # Axios client + all API groups
 │       ├── context/
-│       │   └── AuthContext.jsx          # Global auth state (user, login, logout)
+│       │   └── AuthContext.jsx              # Global auth state (user, login, logout)
 │       ├── utils/
-│       │   └── movieUtils.js            # Genre gradients, title cleaning, score formatting
+│       │   └── movieUtils.js                # Genre gradients, title cleaning, score formatting
 │       ├── components/
 │       │   ├── HeroBanner.jsx
 │       │   ├── MovieCard.jsx
 │       │   ├── MovieModal.jsx
 │       │   ├── MovieRow.jsx
-│       │   ├── Navbar.jsx
+│       │   ├── Navbar.jsx                   # Links: Home, My List, Browse, AI Picks, Chat
 │       │   └── ProtectedRoute.jsx
 │       └── pages/
-│           ├── Auth.jsx
-│           ├── Home.jsx
-│           ├── Search.jsx
-│           └── Watchlist.jsx
-├── frontend/                            # Streamlit prototype (kept for reference, not active)
+│           ├── Auth.jsx                     # /auth
+│           ├── Home.jsx                     # /
+│           ├── Search.jsx                   # /search (keyword + semantic toggle)
+│           ├── Watchlist.jsx                # /watchlist
+│           ├── AIRecommend.jsx              # /ai (natural-language AI recommendations)
+│           └── Chat.jsx                     # /chat (multi-turn conversational recommender)
+├── frontend/                                # Streamlit prototype (kept for reference, not active)
 ├── data/
 │   └── ml-latest-small/
-│       ├── movies.csv
-│       ├── ratings.csv
-│       └── tags.csv
 ├── notebooks/
 ├── docker/
 ├── requirements.txt
-└── context.md                           # This file
+└── context.md                               # This file
 ```
 
 ---
@@ -156,7 +168,7 @@ All tables in PostgreSQL database `movie_recommender`:
 |---|---|---|
 | movie_id | INT PK | from MovieLens |
 | title | VARCHAR | includes "(YYYY)" at end |
-| genres | VARCHAR | pipe-separated, e.g. `Action\|Comedy` |
+| genres | VARCHAR | pipe-separated e.g. `Action\|Comedy` |
 
 ### `ratings`
 | Column | Type | Notes |
@@ -211,12 +223,77 @@ Unique constraint: (user_id, movie_id)
 DATABASE_PASSWORD=...         # Used to build local PostgreSQL connection string
 SECRET_KEY=...                # JWT signing key
 DATABASE_URL=postgresql://... # Neon cloud URL (in .env but NOT used in active code)
-OPENAI_API_KEY=sk-proj-...    # Stored but currently unused
+OPENAI_API_KEY=sk-proj-...    # Used by ai/llm_service.py (gpt-4.1-mini)
 ```
 
-The active DB connection string is built in `db/database.py` as:
+Active DB connection string built in `db/database.py`:
 ```
 postgresql://postgres:{DATABASE_PASSWORD}@127.0.0.1:5432/movie_recommender
+```
+
+---
+
+## Unified Movie Object Schema
+
+All recommenders return the same shape. This is the canonical `Recommendation` object (defined in `schemas/recommendation.py`):
+
+```python
+class Recommendation(BaseModel):
+    movie_id: int
+    title: str
+    genres: str
+    score: float           # raw score (avg_rating for popularity; cosine sim for others; hybrid_score for hybrid)
+    normalized_score: float  # score normalized to 0–1 within its result set (added by normalize_scores())
+    recommendation_source: str   # "popularity" | "content_based" | "personalized_content" | "collaborative" | "hybrid"
+    vote_count: Optional[int]    # only set for popularity; None for all others
+    reasons: List[str]           # human-readable reasons (max 2)
+    metadata: Dict[str, Any]     # source-specific extras (avg_rating for popularity; sub-scores for hybrid)
+```
+
+### Concrete shapes per source
+
+**Popularity:**
+```json
+{
+  "movie_id": 1, "title": "Toy Story (1995)", "genres": "Adventure|Animation|...",
+  "score": 4.21, "normalized_score": 0.95,
+  "recommendation_source": "popularity",
+  "vote_count": 341,
+  "reasons": ["Highly rated by the community"],
+  "metadata": {"avg_rating": 4.21}
+}
+```
+
+**Content-based / Personalized / Collaborative:**
+```json
+{
+  "movie_id": 1, "title": "Arrival (2016)", "genres": "Drama|Sci-Fi",
+  "score": 0.874, "normalized_score": 0.91,
+  "recommendation_source": "content_based",
+  "vote_count": null,
+  "reasons": ["Similar content and themes"],
+  "metadata": {}
+}
+```
+
+**Hybrid:**
+```json
+{
+  "movie_id": 1, "title": "Interstellar (2014)", "genres": "Adventure|Drama|Sci-Fi",
+  "score": 5.32, "normalized_score": 0.88,
+  "recommendation_source": "hybrid",
+  "vote_count": null,
+  "reasons": ["Similar to movies you've enjoyed", "Liked by users with similar tastes"],
+  "metadata": {"popularity_score": 0.8, "content_score": 2.8, "collaborative_score": 1.72}
+}
+```
+
+**Semantic (from AI pipeline only — brute-force cosine, no normalize_scores applied):**
+```json
+{
+  "movie_id": 1, "title": "Moon (2009)", "genres": "Drama|Sci-Fi",
+  "score": 0.812
+}
 ```
 
 ---
@@ -227,21 +304,18 @@ postgresql://postgres:{DATABASE_PASSWORD}@127.0.0.1:5432/movie_recommender
 
 ### `backend/main.py`
 
-**Entry point for the FastAPI application.**
+FastAPI app entry point. Registers all routers.
 
 ```python
-app = FastAPI()
-
-app.include_router(auth_router,            prefix="/auth")
-app.include_router(users_router)           # /me
-app.include_router(movies_router)          # /movies, /movies/search
-app.include_router(ratings_router)         # /rate
-app.include_router(watchlist_router)       # /watchlist/*
-app.include_router(recommendations_router) # /recommendations/*
-app.include_router(semantic_router)        # /search/semantic
-
-@app.get("/")
-def home() → {"message": "Movie Recommender API is running"}
+app.include_router(auth_router,            prefix="/auth",  tags=["Authentication"])
+app.include_router(users_router,                            tags=["Users"])
+app.include_router(movies_router,                           tags=["Movies"])
+app.include_router(ratings_router,                          tags=["Ratings"])
+app.include_router(watchlist_router,                        tags=["Watchlist"])
+app.include_router(recommendations_router,                  tags=["Recommendations"])
+app.include_router(semantic_router)
+app.include_router(ai_router)             # prefix="/ai",   tags=["AI"]
+app.include_router(chat_router)           # prefix="/chat", tags=["Chat"]
 ```
 
 Run with: `uvicorn main:app --reload` from `backend/`
@@ -250,206 +324,132 @@ Run with: `uvicorn main:app --reload` from `backend/`
 
 ### `backend/db/database.py`
 
-**Database connection factory.**
+- Builds PostgreSQL URL from `DATABASE_PASSWORD` env var
+- Exports `engine` (SQLAlchemy), `SessionLocal`, and `DATABASE_URL` (string)
+- Code uses `engine.connect()` with raw SQL text — not ORM sessions
 
-- Creates SQLAlchemy `engine` for PostgreSQL using `DATABASE_PASSWORD` from env
-- Creates `SessionLocal` (not used — code uses `engine.connect()` with raw SQL directly)
-- Exports: `engine`, `SessionLocal`
-- Used by: almost every backend module that needs DB access
+---
 
-```python
-engine = create_engine(f"postgresql://postgres:{pw}@127.0.0.1:5432/movie_recommender")
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-```
+### `backend/schemas/recommendation.py`
+
+Canonical `Recommendation` Pydantic model (see Unified Movie Object Schema above).
 
 ---
 
 ### `backend/schemas/auth.py`
 
-**Pydantic models for auth requests.**
-
 ```python
-class UserSignup(BaseModel):
-    username: str
-    email: str
-    password: str
-
-class UserLogin(BaseModel):
-    email: str
-    password: str
+class UserSignup(BaseModel): username, email, password
+class UserLogin(BaseModel): email, password
 ```
-
----
 
 ### `backend/schemas/rating.py`
-
 ```python
-class RatingCreate(BaseModel):
-    movie_id: int
-    rating: float
+class RatingCreate(BaseModel): movie_id: int, rating: float
 ```
 
----
-
 ### `backend/schemas/watchlist.py`
-
 ```python
-class WatchlistCreate(BaseModel):
-    movie_id: int
+class WatchlistCreate(BaseModel): movie_id: int
 ```
 
 ---
 
 ### `backend/utils/auth.py`
 
-**JWT authentication dependency.**
-
-Constants:
-- `SECRET_KEY` — from `.env`
-- `ALGORITHM = "HS256"`
+JWT authentication FastAPI dependency.
 
 ```python
-def get_current_user(credentials: HTTPAuthorizationCredentials = Security(HTTPBearer())) → dict
+def get_current_user(credentials: HTTPAuthorizationCredentials) → dict
 ```
 - Decodes `Authorization: Bearer <token>` header
-- Validates signature and expiration (`exp` claim)
-- Fetches matching user row from `users` table
 - Returns: `{"id": int, "username": str, "email": str}`
-- Raises: `HTTPException(401)` on invalid/expired token or user not found
+- Raises: `HTTPException(401)` on invalid/expired token
 
-Used as a FastAPI `Depends()` on all protected endpoints.
+Used as `Depends(get_current_user)` on protected endpoints.
 
 ---
 
 ### `backend/api/auth.py`
 
-**Auth routes.**
-
 ```
-POST /auth/signup
-  Body: UserSignup {username, email, password}
-  Logic: hash password with bcrypt, check email uniqueness, INSERT into users
-  Returns: {"message": "User created successfully"}
-  Raises: 400 if email already exists
-
-POST /auth/login
-  Body: UserLogin {email, password}
-  Logic: fetch user by email, verify bcrypt hash, create JWT (24h expiry)
-  Returns: {"access_token": str, "token_type": "bearer"}
-  Raises: 401 if invalid credentials
+POST /auth/signup  → hash pw, check uniqueness, INSERT users → {message}
+POST /auth/login   → verify pw, create 24h JWT             → {access_token, token_type}
 ```
-
----
 
 ### `backend/api/users.py`
-
 ```
-GET /me
-  Auth: Required (Bearer token)
-  Returns: {"user": {"id": int, "username": str, "email": str}}
+GET /me  (auth required) → {user: {id, username, email}}
 ```
-
----
 
 ### `backend/api/movies.py`
-
 ```
-GET /movies
-  Auth: Not required
-  Returns: [{movie_id, title, genres}, ...]  (first 20 rows)
-
-GET /movies/search?query=<str>
-  Auth: Not required
-  Logic: SELECT ... WHERE title ILIKE '%query%' LIMIT 20
-  Returns: [{movie_id, title, genres}, ...]
+GET /movies                    → [{movie_id, title, genres}] (first 20)
+GET /movies/search?query=<str> → [{movie_id, title, genres}] (ILIKE, limit 20)
 ```
-
----
 
 ### `backend/api/ratings.py`
-
 ```
-POST /rate
-  Auth: Required
-  Body: RatingCreate {movie_id: int, rating: float}
-  Logic: INSERT into ratings table
-  Returns: {"message": "Rating added successfully"}
+POST /rate  (auth required)  Body: {movie_id, rating}  → {message}
 ```
-
----
 
 ### `backend/api/watchlist.py`
-
 ```
-POST /watchlist/add
-  Auth: Required
-  Body: WatchlistCreate {movie_id: int}
-  Logic: INSERT into watchlist, skip if already exists
-  Returns: {"message": "Added to watchlist"}
-
-GET /watchlist
-  Auth: Required
-  Logic: SELECT w.movie_id, m.title, m.genres FROM watchlist JOIN movies
-  Returns: [{movie_id, title, genres}, ...]
-
-DELETE /watchlist/{movie_id}
-  Auth: Required
-  Logic: DELETE FROM watchlist WHERE user_id=? AND movie_id=?
-  Returns: {"message": "Removed from watchlist"}
+POST   /watchlist/add         (auth)  Body: {movie_id}   → {message}
+GET    /watchlist             (auth)                      → [{movie_id, title, genres}]
+DELETE /watchlist/{movie_id}  (auth)                      → {message}
 ```
-
----
 
 ### `backend/api/recommendations.py`
-
 ```
-GET /recommendations
-  Auth: Required
-  Calls: services/recommendation_service.get_homepage_recommendations(user_id)
-  Returns: {
-    "must_watch":       {"title": "🔥 Must Watch",          "movies": [...]},
-    "personalized":     {"title": "🧠 Personalized For You", "movies": [...]},
-    "users_also_liked": {"title": "👥 Users Also Liked",     "movies": [...]},
-    "hybrid":           {"title": "🔄 Hybrid Recommendations","movies": [...]}
-  }
+GET /recommendations          (auth)
+  → calls recommendation_service.get_homepage_recommendations(user_id)
+  → {must_watch, personalized, users_also_liked, hybrid}  (each has title + movies[])
 
 GET /recommendations/content?movie_title=<str>
-  Auth: Not required
-  Calls: services/recommendation_service.get_content_based_recommendations(movie_title)
-  Returns: {"title": "🎭 More Like {movie_title}", "movies": [...]}
+  → calls recommendation_service.get_content_based_recommendations(movie_title)
+  → {title, movies[]}
 ```
-
----
 
 ### `backend/api/semantic.py`
-
 ```
 GET /search/semantic?query=<str>&limit=10
-  Auth: Not required
-  Calls: services/semantic_service.SemanticService.search(query, limit)
-  Returns: {"query": str, "results": [{movie_id, title, score}, ...]}
+  → calls SemanticService.search(query, limit)
+  → {query, results: [{movie_id, title, genres, score}]}
+```
+
+### `backend/api/ai.py`
+```
+GET /ai/recommend?query=<str>
+  Pipeline: parse_user_query → retrieve_candidates → rerank_movies → generate_explanation
+  → {query, explanation, movies: [Recommendation x 10]}
+```
+
+### `backend/api/chat.py`
+```
+POST /chat/
+  Body: ChatRequest {message: str, history: [{role, content}]}
+  Pipeline: understand_user_intent → run_recommendation_pipeline → generate_explanation
+  → {reply: str, movies: [Recommendation x 10]}
 ```
 
 ---
 
 ### `backend/services/recommendation_service.py`
 
-**Orchestration layer — assembles the homepage.**
-
 ```python
 def get_homepage_recommendations(user_id: int) → dict
 ```
-Calls all four recommenders sequentially and assembles sections:
+Calls recommenders in order and assembles 4-section response:
 1. `popularity.get_popular_recommendations(user_id)` → `must_watch`
 2. `hybrid.get_hybrid_recommendations(user_id)` → `personalized`
 3. `collaborative.get_collaborative_recommendations(user_id)` → `users_also_liked`
 4. `hybrid.get_hybrid_recommendations(user_id)` → `hybrid`
-   - Normalizes `hybrid_score` field to 0–1 range (divides by max hybrid_score)
 
 ```python
 def get_content_based_recommendations(movie_title: str) → dict
 ```
-Calls `content_based.get_similar_movies(movie_title)` and wraps result.
+Wraps `content_based.get_similar_movies(movie_title)`.
 
 ---
 
@@ -464,329 +464,270 @@ Thin wrapper over `embeddings.semantic_search.semantic_search(query, limit)`.
 
 ---
 
-### `backend/recommender/popularity.py`
+### `backend/recommender/utils.py`
 
-**Popularity-based recommender.**
+```python
+def normalize_scores(recommendations: List[dict], score_field: str = "score") → List[dict]
+```
+Divides every item's score by the max score in the list, writing the result to `normalized_score`. Called at the end of every recommender function. Returns empty list unchanged.
+
+---
+
+### `backend/recommender/popularity.py`
 
 ```python
 def get_popular_recommendations(user_id: int) → List[dict]
 ```
-
-Algorithm:
-1. Query `ml_ratings` joined with `movies`
-2. Exclude movies already rated by `user_id` (from `ratings` table)
-3. Group by movie, compute AVG(rating) and COUNT(rating)
-4. Filter: COUNT > 50 (minimum vote threshold)
-5. ORDER BY avg_rating DESC, LIMIT 20
-
-Returns list of:
-```python
-{
-    "movie_id": int,
-    "title": str,
-    "genres": str,
-    "score": float,         # avg_rating from ml_ratings
-    "vote_count": int,
-    "recommendation_source": "popularity"
-}
-```
-
-Used for: `🔥 Must Watch` row
+SQL: `ml_ratings JOIN movies`, exclude user-rated, `HAVING COUNT > 50`, `ORDER BY avg_rating DESC`, `LIMIT 20`.  
+Appends `reasons: ["Highly rated by the community"]` and `metadata: {avg_rating}`.  
+Calls `normalize_scores()` before returning.
 
 ---
 
 ### `backend/recommender/content_based.py`
 
-**Content-based "More Like This" recommender.**
-
-Imports at module level from `engines/content_engine.py`:
-- `movies_df` — processed DataFrame
-- `similarity` — cosine similarity matrix
-
 ```python
 def get_similar_movies(movie_title: str) → List[dict]
 ```
-
-Algorithm:
-1. Find `movie_title` in `movies_df` index
-2. Get row of similarity scores from the matrix
-3. Sort descending, exclude self (score = 1.0)
-4. Return top 5
-
-Returns list of:
-```python
-{
-    "movie_id": int,
-    "title": str,
-    "genres": str,
-    "score": float,         # cosine similarity (0–1)
-    "recommendation_source": "content_based"
-}
-```
-
-Used for: `🎭 More Like {title}` in MovieModal
+Uses module-level `movies_df` and `similarity` matrix from `content_engine.py`.  
+Exact title match → cosine similarity row → top 5 (excluding self).  
+`reasons: ["Similar content and themes"]`, `vote_count: None`.  
+Calls `normalize_scores()`.
 
 ---
 
 ### `backend/recommender/personalized_content.py`
 
-**User-profile content recommender.**
-
-Imports `movies_df` and `vectors` (TF-IDF vectors) from `content_engine.py`.
-
 ```python
 def get_personalized_recommendations(user_id: int, top_n: int = 20) → List[dict]
 ```
-
-Algorithm:
-1. Fetch user's rated movies with `rating >= 4` from `ratings` table
-2. Cold start check: return `[]` if no qualifying ratings
-3. Get TF-IDF vectors for liked movies from `vectors`
-4. Build user profile = `np.mean(liked_vectors, axis=0)` (centroid)
-5. Compute cosine similarity between profile and all movie vectors
-6. Filter out already-rated movies
-7. Sort descending, return top `top_n`
-
-Returns list of:
-```python
-{
-    "movie_id": int,
-    "title": str,
-    "genres": str,
-    "score": float,         # cosine similarity (0–1)
-    "recommendation_source": "personalized_content"
-}
-```
-
-Used for: `🧠 Personalized For You` row (currently via hybrid layer)
+Fetches user's movies with `rating >= 4`, builds mean TF-IDF profile vector, computes cosine similarity against all movies, filters watched, returns top N.  
+Cold start → returns `[]` if no qualifying ratings.  
+`reasons: ["Matches your viewing preferences"]`.  
+Calls `normalize_scores()`.
 
 ---
 
 ### `backend/recommender/collaborative.py`
 
-**Collaborative filtering via SVD matrix factorization.**
-
-**Module-level preprocessing (runs on import, ~seconds):**
-1. Load all `ml_ratings` and `movies` from PostgreSQL
-2. Build user-movie rating matrix (rows=users, cols=movies, values=rating, fillna=0)
-3. Convert to scipy CSR sparse matrix
-4. Apply `TruncatedSVD(n_components=50)` → latent user embeddings (`U`)
-5. Compute cosine similarity matrix between all users in latent space
+**Module-level preprocessing (runs on import):** loads `ml_ratings`, builds user-movie matrix, applies `TruncatedSVD(n_components=50)`, computes user cosine similarity matrix.
 
 ```python
 def get_collaborative_recommendations(user_id: int, top_n: int = 20) → List[dict]
 ```
-
-Algorithm:
-1. Find user's row index in the user-movie matrix
-2. If user not found in matrix → return `[]`
-3. Get top 10 most similar users (exclude self)
-4. For each similar user: collect movies they rated >= 4
-5. Exclude movies already rated by target user
-6. Aggregate score = sum of similarity_score per movie across similar users
-7. Sort by aggregated score DESC, return top `top_n`
-
-Returns list of:
-```python
-{
-    "movie_id": int,
-    "title": str,
-    "genres": str,
-    "score": float,         # aggregated similarity score
-    "recommendation_source": "collaborative"
-}
-```
-
-Used for: `👥 Users Also Liked` row
+Finds top 10 most similar users (excluding self), collects their `rating >= 4` movies not seen by target user, aggregates similarity scores per movie, returns top N.  
+`reasons: ["Liked by users with similar tastes"]`.  
+Calls `normalize_scores()`.
 
 ---
 
 ### `backend/recommender/hybrid.py`
 
-**Ensemble recommender combining all three algorithms.**
-
-Weights:
 ```python
-POPULARITY_WEIGHT    = 0.2
-CONTENT_WEIGHT       = 0.4
+POPULARITY_WEIGHT = 0.2
+CONTENT_WEIGHT    = 0.4
 COLLABORATIVE_WEIGHT = 0.4
-```
 
-```python
 def get_hybrid_recommendations(user_id: int, top_n: int = 20) → List[dict]
 ```
-
-Algorithm:
-1. Get recommendations from:
-   - `popularity.get_popular_recommendations(user_id)`
-   - `personalized_content.get_personalized_recommendations(user_id)`
-   - `collaborative.get_collaborative_recommendations(user_id)`
-2. Rank each list by position (rank 1 = best)
-3. weighted_score = `(1/rank) * WEIGHT` for each source
-4. Aggregate by movie_id: sum weighted scores across sources
-5. Sort by `hybrid_score` DESC
-6. For each top movie, generate explanations via `RecommendationExplainer.generate(movie)`
-
-Returns list of:
+Calls all three sub-recommenders. For each movie at rank `r` in source list: `weighted_score = (len(list) - r) * WEIGHT`. Aggregates by movie_id. Sorts by `hybrid_score`.  
+Builds final output with sub-scores moved into `metadata`:
 ```python
-{
-    "movie_id": int,
-    "title": str,
-    "genres": str,
-    "score": float,
-    "hybrid_score": float,
-    "popularity_score": float,
-    "content_score": float,
-    "collaborative_score": float,
-    "recommendation_source": "hybrid",
-    "reasons": List[str]    # human-readable, max 2 reasons
-}
+metadata = {"popularity_score": ..., "content_score": ..., "collaborative_score": ...}
 ```
-
-Used for: `🔄 Hybrid Recommendations` row
+Generates `reasons` via `RecommendationExplainer.generate(movie)`.  
+Calls `normalize_scores()`.
 
 ---
 
 ### `backend/recommender/engines/content_engine.py`
 
-**ML preprocessing pipeline for content-based filtering. Runs on import.**
+**Runs on import.** Loads `movies` + `tags` from DB, cleans genres, aggregates tags, stems with NLTK PorterStemmer, TF-IDF vectorizes (`max_features=5000`), computes full cosine similarity matrix.
 
-Steps:
-1. Load `movies` table and `tags` table from PostgreSQL
-2. Clean `genres`: replace `|` with space, remove `"(no genres listed)"`
-3. Aggregate `tags` per movie: group by `movie_id`, join all tags with space
-4. Merge movies + tags DataFrames on `movie_id`
-5. Build `content` column: `genres_clean + " " + aggregated_tags`
-6. Lowercase entire content column
-7. Apply `PorterStemmer` to every word in content
-8. TF-IDF Vectorization: `max_features=5000`, `stop_words='english'`
-9. Compute cosine similarity matrix over all movie vectors
-
-Exports (used by other modules):
+Exports:
 ```python
-movies_df   # pd.DataFrame with columns: movie_id, title, genres, content
-vectors     # np.ndarray — TF-IDF feature matrix (n_movies × 5000)
+movies_df   # pd.DataFrame — movie_id, title, genres, content
+vectors     # np.ndarray — TF-IDF matrix (n_movies × 5000)
 similarity  # np.ndarray — cosine similarity matrix (n_movies × n_movies)
 ```
-
-Imported by: `content_based.py`, `personalized_content.py`
 
 ---
 
 ### `backend/embeddings/embedding_service.py`
 
-**SentenceTransformer singleton.**
-
 ```python
 class EmbeddingService:
-    _model = None
-
     @classmethod
-    def get_model() → SentenceTransformer
-        # Lazy-loads all-MiniLM-L6-v2 on first call
-
+    def get_model() → SentenceTransformer   # lazy-loads all-MiniLM-L6-v2
     @classmethod
-    def embed_text(text: str) → List[float]
-        # Returns 384-dimensional vector
+    def embed_text(text: str) → List[float] # 384-dim vector
 ```
 
 ---
 
 ### `backend/embeddings/semantic_search.py`
 
-**Semantic search implementation.**
-
 ```python
 def load_movie_embeddings() → pd.DataFrame
-```
-- Query: `SELECT m.movie_id, m.title, me.embedding FROM movies m JOIN movie_embeddings me ON m.movie_id = me.movie_id`
-- Parses JSON string embeddings → Python lists
-- Returns DataFrame with columns: `[movie_id, title, embedding]`
+# SELECT m.movie_id, m.title, m.genres, me.embedding FROM movies JOIN movie_embeddings
+# Returns: DataFrame [movie_id, title, genres, embedding]
 
-```python
 def semantic_search(query: str, top_k: int = 10) → List[dict]
-```
-1. Encode query via `EmbeddingService.embed_text(query)` → 384-dim vector
-2. Load all movie embeddings from DB
-3. For each movie: compute cosine similarity between query vector and movie vector
-4. Sort by similarity DESC
-5. Return top `top_k`
-
-Returns list of:
-```python
-{
-    "movie_id": int,
-    "title": str,
-    "score": float      # cosine similarity (0–1)
-}
+# Encodes query → cosine sim vs all embeddings → top K
+# Returns: [{movie_id, title, genres, score}]
 ```
 
-Note: This is a brute-force scan over all embeddings. No ANN index yet.
+Note: brute-force scan — no ANN index. genres now included (added alongside Phase 2).
 
 ---
 
 ### `backend/explainability/recommendation_explainer.py`
-
-**Generates human-readable recommendation reasons.**
 
 ```python
 class RecommendationExplainer:
     @staticmethod
     def generate(movie: dict) → List[str]
 ```
-
-- Reads `content_score`, `collaborative_score`, `popularity_score` from movie dict
-- Sorts sources by score DESC
-- Takes top 2 sources with score > 0
-- Maps to strings:
-  - `content` → `"Similar to movies you've enjoyed"`
-  - `collaborative` → `"Liked by users with similar tastes"`
-  - `popularity` → `"Highly rated by the community"`
-
-Called by: `hybrid.py` after building hybrid scores
+Reads flat `content_score`, `collaborative_score`, `popularity_score` from an intermediate hybrid dict (before the final reshape). Returns up to 2 reasons for the top-scoring sources. Called only by `hybrid.py`.
 
 ---
 
-### `backend/scripts/seed_movies.py`
+### `backend/ai/llm_service.py`
 
-One-time script. Reads `data/ml-latest-small/movies.csv`, renames `movieId → movie_id`, inserts into `movies` table.
+**Single OpenAI wrapper — all LLM calls go through here.**
 
-### `backend/scripts/seed_ratings.py`
+```python
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-One-time script. Reads `data/ml-latest-small/ratings.csv`, renames columns, inserts into `ml_ratings` table.
-
-### `backend/scripts/seed_tags.py`
-
-One-time script. Reads `data/ml-latest-small/tags.csv`, inserts into `tags` table.
-
-### `backend/scripts/generate_movie_embeddings.py`
-
-One-time script. For each movie:
-- Builds content string: `f"{title}\n{genres}\n{tags}"`
-- Encodes with `SentenceTransformer("all-MiniLM-L6-v2")` → 384-dim vector
-- Upserts into `movie_embeddings` table (ON CONFLICT DO UPDATE)
-
-### `backend/scripts/test_db_connection.py`
-
-Sanity check script. Connects with psycopg2, runs `SELECT 1`.
+def chat(messages: list, temperature: float = 0.2) → str
+# Calls gpt-4.1-mini, returns content string
+```
 
 ---
 
-### `backend/agents/` (🚧 All files empty — planned feature)
+### `backend/ai/schemas.py`
 
-| File | Planned Purpose |
+```python
+class ParsedMovieQuery(BaseModel):
+    genres: List[str] = []
+    moods: List[str] = []
+    themes: List[str] = []
+    similar_to: List[str] = []   # specific movie titles
+    exclude: List[str] = []
+
+class AIRecommendationResponse(BaseModel):
+    query: str
+    explanation: str
+    movies: list
+```
+
+---
+
+### `backend/ai/query_parser.py`
+
+```python
+def parse_user_query(query: str) → ParsedMovieQuery
+```
+Sends query to LLM with structured JSON extraction prompt. Returns `ParsedMovieQuery()` (all empty lists) on any parse failure.
+
+---
+
+### `backend/ai/recommendation_pipeline.py`
+
+```python
+def retrieve_candidates(raw_query: str, parsed: ParsedMovieQuery) → List[dict]
+```
+Merges candidates from three sources (deduped by movie_id, up to 50 total):
+1. `semantic_search(raw_query, top_k=20)` — always runs
+2. `get_similar_movies(title)` for each title in `parsed.similar_to`
+3. `get_popular_recommendations(user_id=0)` — popularity fallback (user_id=0 excludes nothing)
+
+All wrapped in try/except so partial failures don't break the pipeline.
+
+```python
+def run_recommendation_pipeline(intent: str) → List[dict]
+```
+Single-call entry point for agents: `parse_user_query(intent)` → `retrieve_candidates(intent, parsed)` → `rerank_movies(intent, candidates)`.
+
+---
+
+### `backend/ai/reranker.py`
+
+```python
+def rerank_movies(query: str, candidates: List[dict], top_n: int = 10) → List[dict]
+```
+Sends candidate list as `movie_id: title | genres` lines to LLM. Asks for ranked JSON array of movie_ids. Reorders candidates by LLM rank, backfills any LLM-missed candidates, returns top N.  
+Falls back to `candidates[:top_n]` on parse failure.
+
+---
+
+### `backend/ai/explanation_generator.py`
+
+```python
+def generate_explanation(query: str, movies: List[dict]) → str
+```
+Sends top-5 movies (title + genres) to LLM with the user query. LLM writes 2–3 sentences grounded in themes and tone. Falls back to a generic string on failure. Called by both `api/ai.py` and `agents/recommendation_agent.py`.
+
+---
+
+### `backend/agents/schemas.py`
+
+```python
+class ChatMessage(BaseModel): role: str, content: str
+class ChatRequest(BaseModel): message: str, history: List[ChatMessage] = []
+class ChatResponse(BaseModel): reply: str, movies: list = []
+```
+
+---
+
+### `backend/agents/prompts.py`
+
+```python
+SYSTEM_PROMPT          # Agent persona — maintain context, refine across turns
+INTENT_EXTRACTION_PROMPT  # "Convert this conversation into a standalone search query. Return ONLY the query."
+```
+
+---
+
+### `backend/agents/chatbot.py`
+
+```python
+def understand_user_intent(message: str, history: List[dict]) → str
+```
+Builds full conversation (system prompt + history + current message) and appends `INTENT_EXTRACTION_PROMPT` as a second user message. The LLM sees the whole conversation and collapses it into a single standalone search string.
+
+Example:
+```
+Turn 1: "Recommend sci-fi movies"
+Turn 2: "Something darker"
+Turn 3: "Not too old"
+→ "dark sci-fi movies released after 2000"
+```
+
+---
+
+### `backend/agents/recommendation_agent.py`
+
+```python
+def handle_chat(message: str, history: list) → dict
+```
+Orchestrates one chat turn:
+1. `understand_user_intent(message, history)` → intent string
+2. `run_recommendation_pipeline(intent)` → movies
+3. `generate_explanation(intent, movies[:5])` → reply string
+4. Returns `{"reply": str, "movies": List[dict][:10]}`
+
+---
+
+### `backend/scripts/`
+
+| Script | Purpose |
 |---|---|
-| `chatbot.py` | Conversational chat interface handler |
-| `recommendation_agent.py` | Agent that calls recommenders and formats chat responses |
-| `prompts.py` | System prompts / few-shot examples for the LLM |
-| `schemas.py` | Pydantic models for agent request/response |
-
-Conversational recommender examples to support:
-- "Recommend mind-bending sci-fi movies"
-- "Movies like Interstellar but darker"
-- "Funny movies for family night"
-
-The `OPENAI_API_KEY` in `.env` is already present for this use.
+| `seed_movies.py` | Load `movies.csv` → `movies` table |
+| `seed_ratings.py` | Load `ratings.csv` → `ml_ratings` table |
+| `seed_tags.py` | Load `tags.csv` → `tags` table |
+| `generate_movie_embeddings.py` | Encode all movies with SentenceTransformer → upsert `movie_embeddings` |
+| `test_db_connection.py` | psycopg2 connection sanity check |
 
 ---
 
@@ -806,9 +747,11 @@ The `OPENAI_API_KEY` in `.env` is already present for this use.
 | GET | `/recommendations` | Yes | — | `{must_watch, personalized, users_also_liked, hybrid}` |
 | GET | `/recommendations/content?movie_title=` | No | query param | `{title, movies}` |
 | GET | `/search/semantic?query=&limit=` | No | query params | `{query, results}` |
+| GET | `/ai/recommend?query=` | No | query param | `{query, explanation, movies}` |
+| POST | `/chat/` | No | `{message, history[]}` | `{reply, movies}` |
 | GET | `/` | No | — | `{message}` |
 
-Auth header format: `Authorization: Bearer <jwt_token>`
+Auth header: `Authorization: Bearer <jwt_token>`
 
 ---
 
@@ -816,300 +759,191 @@ Auth header format: `Authorization: Bearer <jwt_token>`
 
 ---
 
-### `frontend-react/vite.config.js`
-
-- Dev server: port `3000`
-- Proxy: `/api/*` → `http://127.0.0.1:8000` (strips `/api` prefix)
-- Plugin: `@vitejs/plugin-react` (Fast Refresh)
-
----
-
 ### `frontend-react/src/api/api.js`
 
-**Central Axios client. All backend calls go through here.**
-
-Axios instance:
-- `baseURL: '/api'`
-- Request interceptor: adds `Authorization: Bearer <token>` from `localStorage.getItem('token')`
-- Response interceptor: on 401 → clears token, redirects to `/auth`
-
-Exported API groups:
+Central Axios client. `baseURL: '/api'`. Request interceptor adds JWT. Response interceptor redirects to `/auth` on 401.
 
 ```js
-authAPI = {
-    signup(username, email, password)  → POST /auth/signup
-    login(email, password)             → POST /auth/login
-}
-
-moviesAPI = {
-    getAll()                           → GET /movies
-    search(q)                          → GET /movies/search?query=q
-}
-
-recommendationsAPI = {
-    getHomepage()                      → GET /recommendations
-    getContentBased(title)             → GET /recommendations/content?movie_title=title
-}
-
-semanticAPI = {
-    search(query, limit=10)            → GET /search/semantic?query=query&limit=limit
-}
-
-ratingsAPI = {
-    rate(movieId, rating)              → POST /rate
-}
-
-watchlistAPI = {
-    get()                              → GET /watchlist
-    add(movieId)                       → POST /watchlist/add
-    remove(movieId)                    → DELETE /watchlist/movieId
-}
-
-usersAPI = {
-    getMe()                            → GET /me
-}
+authAPI       = { signup(), login() }
+moviesAPI     = { getAll(), search(q) }
+recommendationsAPI = { getHomepage(), getContentBased(title) }
+semanticAPI   = { search(query, limit=10) }
+ratingsAPI    = { rate(movieId, rating) }
+watchlistAPI  = { get(), add(movieId), remove(movieId) }
+usersAPI      = { getMe() }
+aiAPI         = { recommend(query) }         // GET /ai/recommend — 60s timeout
+chatAPI       = { send(message, history) }   // POST /chat/     — 90s timeout
 ```
 
----
-
-### `frontend-react/src/context/AuthContext.jsx`
-
-**Global auth state. Wraps entire app.**
-
-State:
-- `user` — `null` or `{id, username, email}`
-- `loading` — `true` while verifying stored token on mount
-
-Methods:
-```js
-login(email, password)                 → calls authAPI.login(), stores token, fetches /me, sets user
-signup(username, email, password)      → calls authAPI.signup(), then login()
-logout()                               → removes token from localStorage, sets user to null
-```
-
-Hook: `useAuth()` — access `{user, loading, login, signup, logout}` from any component
+AI and chat endpoints have extended timeouts because they make multiple sequential LLM calls.
 
 ---
 
 ### `frontend-react/src/utils/movieUtils.js`
 
-Utility functions for display:
-
 ```js
-getGenreGradient(genres: str) → str (CSS gradient)
-// Maps first matching genre to a gradient. 16 genres mapped.
-// e.g., Action → dark red gradient, Comedy → green gradient
-
-getCleanTitle(title: str) → str
-// Removes "(YYYY)" year suffix
-// Reorders articles: "Matrix, The" → "The Matrix"
-
-getYear(title: str) → str
-// Extracts "(YYYY)" → "YYYY" or "" if not found
-
-getGenres(genres: str) → string[]
-// Splits pipe-separated genres string into array
-
-formatScore(movie: obj) → str
-// If recommendation_source === "popularity": returns "★ X.X"
-// Otherwise: returns "XX% Match" (score * 100, rounded)
+getGenreGradient(genres) → CSS gradient string   // 16 genres mapped
+getCleanTitle(title)    → str                    // removes year, fixes "The Matrix" article order
+getYear(title)          → str | null
+getGenres(genres)       → string[]               // splits pipe-separated string
+formatScore(movie)      → {label, type} | null
+  // vote_count truthy → {label: "★ X.X", type: "rating"}
+  // normalized_score present → {label: "XX% Match", type: "match"}
+  // neither → null (no score badge shown)
 ```
 
----
-
-### `frontend-react/src/components/HeroBanner.jsx`
-
-Props: `{ movie, onMoreInfo }`
-
-Renders hero section at top of homepage:
-- Background: genre-based CSS gradient via `getGenreGradient()`
-- Shows: clean title, year, top 3 genres, `★ avg_rating (vote_count votes)`
-- Buttons: "▶ Play" (no-op), "ⓘ More Info" → calls `onMoreInfo(movie)`
+`formatScore` now uses `vote_count` as the discriminant (not `recommendation_source`), and `normalized_score` for the match percentage. This means the same function works for every recommendation source.
 
 ---
 
-### `frontend-react/src/components/MovieRow.jsx`
+### `frontend-react/src/context/AuthContext.jsx`
 
-Props: `{ title, movies, onMovieClick }`
-
-Horizontal scrolling movie carousel:
-- Left/right arrow buttons (show/hide based on scroll position)
-- Each click scrolls 680px
-- Renders `<MovieCard>` for each movie
-- Ref-based scroll tracking
-
----
-
-### `frontend-react/src/components/MovieCard.jsx`
-
-Props: `{ movie, onClick }`
-
-Default state:
-- Genre-gradient background
-- Score badge (top-right) via `formatScore()`
-- Title (clean), year, genre tags
-
-Hover overlay:
-- Play icon, title, genres
-- `reasons` array (max 2) — shown as bullet points
-- Keyboard accessible (Enter key triggers onClick)
-
----
-
-### `frontend-react/src/components/MovieModal.jsx`
-
-Props: `{ movie, onClose, onMovieClick }`
-
-Full-screen modal for movie detail:
-
-On mount:
-- `watchlistAPI.get()` → checks if movie is in watchlist
-- `recommendationsAPI.getContentBased(movie.title)` → loads "More Like This" section
-
-User actions:
-- Add/remove watchlist: `watchlistAPI.add()` / `watchlistAPI.remove()`
-- Star rating (1–5): `ratingsAPI.rate()` on click
-- Click "More Like This" card → calls `onMovieClick(movie)` (opens new modal)
-
-Feedback: Toast notifications for watchlist/rating actions
-Close: X button or Escape key
+State: `user` (`null` | `{id, username, email}`), `loading`.  
+Methods: `login()`, `signup()`, `logout()`.  
+Hook: `useAuth()`.
 
 ---
 
 ### `frontend-react/src/components/Navbar.jsx`
 
-Features:
-- Logo: "FILMIX"
-- Nav links: Home (`/`), My List (`/watchlist`), Browse (`/search`)
-- Collapsible search bar: opens on icon click, navigates to `/search?q=...` on submit
-- User avatar with initials, dropdown: username, email, Logout button
-- Scroll detection: applies CSS class when `window.scrollY > 50`
-
-Uses: `useAuth()`, `useNavigate()`, `useLocation()`
+Nav links: **Home** `/`, **My List** `/watchlist`, **Browse** `/search`, **AI Picks** `/ai`, **Chat** `/chat`.  
+"AI Picks" and "Chat" use gradient text (purple→red) to visually distinguish them.  
+Also has: collapsible search bar → navigates to `/search?q=...`, user avatar + dropdown menu.
 
 ---
 
-### `frontend-react/src/components/ProtectedRoute.jsx`
+### `frontend-react/src/components/MovieCard.jsx`
 
-Wrapper for authenticated routes:
-- Shows spinner while `loading === true` (initial auth check)
-- Redirects to `/auth` if `user === null`
-- Renders `children` if authenticated
+Props: `{movie, onClick}`.  
+Default: gradient bg, `formatScore()` badge, clean title + year + genre tags.  
+Hover: play icon, title, genres, up to 2 `reasons` from the movie object.
 
 ---
 
-### `frontend-react/src/pages/Auth.jsx`
+### `frontend-react/src/components/MovieModal.jsx`
 
-Login / Sign Up page at `/auth`.
-
-State: `mode` (login|signup), form fields, error, loading
-
-- Toggles between login and signup
-- On signup: validates username is present
-- On success: redirects to `/` via `useNavigate()`
-- Shows backend error messages inline
+On mount: checks watchlist, fetches content-based "More Like This".  
+Actions: add/remove watchlist, star rating (1–5), click similar movie opens new modal.
 
 ---
 
 ### `frontend-react/src/pages/Home.jsx`
 
-Netflix-style homepage at `/`.
-
-On mount:
-1. `recommendationsAPI.getHomepage()` → `sections` state
-2. Normalizes `hybrid_score` in hybrid section (divides by max)
-
-Renders:
-- `<HeroBanner>` with first movie from `must_watch`
-- Four `<MovieRow>` sections: must_watch, personalized, users_also_liked, hybrid
-- `<MovieModal>` when card clicked
-
-Error state: message + retry button
-Loading state: spinner
+`/` — protected. Calls `recommendationsAPI.getHomepage()`. Backend now handles all normalization, so no client-side score manipulation. Renders HeroBanner + 4 MovieRow sections.
 
 ---
 
 ### `frontend-react/src/pages/Search.jsx`
 
-Search page at `/search`.
-
-State: `query`, `results`, `loading`, `searchMode` (keyword|semantic), `selectedMovie`
-
-- Query synced to URL param `?q=`
-- Debounced search (380ms) on input change
-- Mode toggle: Keyword (LIKE) vs Semantic (embeddings)
-  - Keyword: `moviesAPI.search(query)`
-  - Semantic: `semanticAPI.search(query, limit=10)`
-- Results displayed as grid of `<MovieCard>`
-- Click opens `<MovieModal>`
-- Shows result count or "No results" message
+`/search` — protected. Debounced 380ms input. Keyword vs Semantic mode toggle. URL synced to `?q=`.
 
 ---
 
 ### `frontend-react/src/pages/Watchlist.jsx`
 
-Watchlist page at `/watchlist`.
-
-On mount: `watchlistAPI.get()`
-On modal close: re-fetches watchlist (user may have removed from modal)
-
-Renders:
-- Title count: "N titles"
-- Grid of `<MovieCard>` components
-- Empty state with CTA to browse
-- `<MovieModal>` on card click
+`/watchlist` — protected. Re-fetches on modal close.
 
 ---
 
-## Call Graph / Dependency Map
+### `frontend-react/src/pages/AIRecommend.jsx`
+
+`/ai` — protected. Natural-language AI recommendations.
+
+State: `query`, `result` (`{query, explanation, movies}`), `loading`, `error`, `selectedMovie`.
+
+- Submit-on-enter form (no debounce — LLM calls are expensive)
+- 4 example query chips for inspiration (only shown before first query)
+- Three-dot animated loading indicator
+- Results: explanation card (purple bordered, AI badge) + movie grid + "Ask something else" reset button
+- Calls `aiAPI.recommend(query)` with 60s timeout
+
+---
+
+### `frontend-react/src/pages/Chat.jsx`
+
+`/chat` — protected. Multi-turn conversational recommender.
+
+State: `messages` (`[{id, role, content, movies[]}]`), `input`, `loading`, `selectedMovie`.
+
+- Full-viewport layout — messages scroll, input pinned to bottom
+- Empty state: chat icon + "What are you in the mood for?" + 4 starter chips
+- Each AI message: gradient avatar dot + text bubble + horizontal movie strip (up to 6 cards)
+- Loading: animated thinking dots in a bubble
+- History sent to backend: `messages.map(m => ({role, content}))` — text only, not movies
+- Context hint below input: "AI remembers this conversation — just say 'something darker'"
+- Calls `chatAPI.send(message, history)` with 90s timeout
+
+---
+
+## Frontend Routing
+
+| Route | Component | Protected |
+|---|---|---|
+| `/auth` | `Auth.jsx` | No |
+| `/` | `Home.jsx` | Yes |
+| `/search` | `Search.jsx` | Yes |
+| `/watchlist` | `Watchlist.jsx` | Yes |
+| `/ai` | `AIRecommend.jsx` | Yes |
+| `/chat` | `Chat.jsx` | Yes |
+
+JWT stored in `localStorage` under key `'token'`.
+
+---
+
+## Call Graph — Full Dependency Map
 
 ```
 Browser
- └── React App (frontend-react/src/)
-      ├── AuthContext (wraps all routes)
-      │    └── authAPI → POST /auth/login, /auth/signup
+ └── React App
+      ├── AuthContext → authAPI → POST /auth/*
+      ├── ProtectedRoute → useAuth()
       │
-      ├── ProtectedRoute (guards /, /watchlist)
-      │    └── useAuth()
-      │
-      ├── Navbar
-      │    ├── useAuth() → logout()
+      ├── Navbar (all pages)
       │    └── moviesAPI.search() → GET /movies/search
       │
       ├── Home (/)
       │    ├── recommendationsAPI.getHomepage() → GET /recommendations
-      │    │    └── FastAPI: api/recommendations.py
-      │    │         └── services/recommendation_service.py
-      │    │              ├── recommender/popularity.py
-      │    │              │    └── SQL: ml_ratings + movies
-      │    │              ├── recommender/hybrid.py
-      │    │              │    ├── recommender/personalized_content.py
-      │    │              │    │    └── engines/content_engine.py (TF-IDF)
-      │    │              │    │         └── SQL: movies + tags
-      │    │              │    ├── recommender/collaborative.py (SVD)
-      │    │              │    │    └── SQL: ml_ratings + movies
-      │    │              │    └── explainability/recommendation_explainer.py
-      │    │              └── recommender/collaborative.py
-      │    └── MovieModal (on click)
-      │         ├── recommendationsAPI.getContentBased() → GET /recommendations/content
-      │         │    └── recommender/content_based.py
-      │         │         └── engines/content_engine.py (cosine similarity matrix)
-      │         ├── ratingsAPI.rate() → POST /rate
-      │         └── watchlistAPI.add/remove/get() → /watchlist/*
+      │    │    └── recommendation_service.py
+      │    │         ├── popularity.py → SQL: ml_ratings + movies
+      │    │         ├── hybrid.py
+      │    │         │    ├── personalized_content.py → content_engine.py (TF-IDF) → SQL: movies + tags
+      │    │         │    ├── collaborative.py (SVD) → SQL: ml_ratings
+      │    │         │    └── recommendation_explainer.py
+      │    │         └── collaborative.py
+      │    └── MovieModal → getContentBased(), rate(), watchlist*
       │
       ├── Search (/search)
-      │    ├── moviesAPI.search() → GET /movies/search  (keyword mode)
-      │    └── semanticAPI.search() → GET /search/semantic  (semantic mode)
-      │         └── FastAPI: api/semantic.py
-      │              └── services/semantic_service.py
-      │                   └── embeddings/semantic_search.py
-      │                        ├── embeddings/embedding_service.py (SentenceTransformer)
-      │                        └── SQL: movie_embeddings JOIN movies
+      │    ├── moviesAPI.search()   → GET /movies/search (keyword)
+      │    └── semanticAPI.search() → GET /search/semantic
+      │         └── semantic_service → semantic_search.py → SentenceTransformer + movie_embeddings
       │
-      └── Watchlist (/watchlist)
-           └── watchlistAPI.get() → GET /watchlist
-                └── SQL: watchlist JOIN movies
+      ├── Watchlist (/watchlist) → watchlistAPI.get() → GET /watchlist
+      │
+      ├── AIRecommend (/ai)
+      │    └── aiAPI.recommend(query) → GET /ai/recommend
+      │         └── api/ai.py
+      │              ├── query_parser.py → llm_service → gpt-4.1-mini
+      │              ├── recommendation_pipeline.py
+      │              │    ├── semantic_search()
+      │              │    ├── get_similar_movies() → content_engine.py
+      │              │    └── get_popular_recommendations() → SQL
+      │              ├── reranker.py → llm_service → gpt-4.1-mini
+      │              └── explanation_generator.py → llm_service → gpt-4.1-mini
+      │
+      └── Chat (/chat)
+           └── chatAPI.send(message, history) → POST /chat/
+                └── api/chat.py
+                     └── agents/recommendation_agent.py
+                          ├── agents/chatbot.py → llm_service (intent extraction)
+                          ├── ai/recommendation_pipeline.py (run_recommendation_pipeline)
+                          │    ├── query_parser.py → llm_service
+                          │    ├── retrieve_candidates() → semantic + content + popularity
+                          │    └── reranker.py → llm_service
+                          └── explanation_generator.py → llm_service
 ```
+
+Each chat turn makes **3 LLM calls**: intent extraction, reranking, explanation.  
+Each `/ai/recommend` call makes **3 LLM calls**: parsing, reranking, explanation.
 
 ---
 
@@ -1117,12 +951,13 @@ Browser
 
 | Algorithm | File | Input | Data Source | Output |
 |---|---|---|---|---|
-| Popularity | `popularity.py` | user_id | `ml_ratings` | Top-rated movies (vote_count > 50) |
-| Content-Based | `content_based.py` | movie_title | `movies` + `tags` (via content_engine) | Top 5 similar movies |
-| Personalized Content | `personalized_content.py` | user_id | `ratings` + content_engine | User-profile-matched movies |
-| Collaborative SVD | `collaborative.py` | user_id | `ml_ratings` | Movies liked by similar users |
-| Hybrid | `hybrid.py` | user_id | All three above | Weighted ensemble, top 20 |
-| Semantic | `semantic_search.py` | query string | `movie_embeddings` | Cosine similarity to query |
+| Popularity | `popularity.py` | user_id | `ml_ratings` | Top-rated movies (count > 50), normalized |
+| Content-Based | `content_based.py` | movie_title | content_engine | Top 5 similar, normalized |
+| Personalized | `personalized_content.py` | user_id | `ratings` + content_engine | Profile-matched, normalized |
+| Collaborative SVD | `collaborative.py` | user_id | `ml_ratings` | Similar-user picks, normalized |
+| Hybrid | `hybrid.py` | user_id | All three above | Weighted ensemble, normalized |
+| Semantic | `semantic_search.py` | query string | `movie_embeddings` | Cosine sim to query (no normalize_scores) |
+| AI Pipeline | `recommendation_pipeline.py` | intent string | semantic + content + popularity | LLM-reranked candidates |
 
 ### Hyperparameters
 
@@ -1139,85 +974,29 @@ Browser
 | Hybrid: collaborative weight | 0.4 | `hybrid.py` |
 | Semantic embedding dim | 384 | `all-MiniLM-L6-v2` |
 | Semantic default top-K | 10 | `semantic_service.py` |
-
----
-
-## Movie Object Shapes
-
-### From popularity recommender
-```json
-{
-  "movie_id": 1,
-  "title": "Toy Story (1995)",
-  "genres": "Adventure|Animation|Children|Comedy|Fantasy",
-  "score": 4.2,
-  "vote_count": 341,
-  "recommendation_source": "popularity"
-}
-```
-
-### From content-based / semantic recommender
-```json
-{
-  "movie_id": 1,
-  "title": "Toy Story (1995)",
-  "genres": "Adventure|Animation|Children|Comedy|Fantasy",
-  "score": 0.87,
-  "recommendation_source": "content_based"
-}
-```
-
-### From hybrid recommender
-```json
-{
-  "movie_id": 1,
-  "title": "Toy Story (1995)",
-  "genres": "Adventure|Animation|Children|Comedy|Fantasy",
-  "score": 0.72,
-  "hybrid_score": 0.531,
-  "popularity_score": 0.12,
-  "content_score": 0.34,
-  "collaborative_score": 0.071,
-  "recommendation_source": "hybrid",
-  "reasons": ["Similar to movies you've enjoyed", "Liked by users with similar tastes"]
-}
-```
-
-### Homepage response shape
-```json
-{
-  "must_watch":       { "title": "🔥 Must Watch",           "movies": [...] },
-  "personalized":     { "title": "🧠 Personalized For You", "movies": [...] },
-  "users_also_liked": { "title": "👥 Users Also Liked",     "movies": [...] },
-  "hybrid":           { "title": "🔄 Hybrid Recommendations","movies": [...] }
-}
-```
-
----
-
-## Frontend Routing
-
-| Route | Component | Protected |
-|---|---|---|
-| `/auth` | `Auth.jsx` | No |
-| `/` | `Home.jsx` | Yes |
-| `/search` | `Search.jsx` | Yes |
-| `/watchlist` | `Watchlist.jsx` | Yes |
-
-JWT token stored in `localStorage` under key `'token'`.
+| AI candidate pool size | 50 | `recommendation_pipeline.py` |
+| AI reranker top-N | 10 | `reranker.py` |
+| LLM model | gpt-4.1-mini | `llm_service.py` |
+| LLM temperature (parsing/ranking) | 0.2 | `llm_service.py` default |
+| LLM temperature (explanation) | 0.4 | `explanation_generator.py` |
+| LLM temperature (intent extraction) | 0.1 | `chatbot.py` |
 
 ---
 
 ## Known Gaps / Next Steps
 
-1. **Conversational agent** — `backend/agents/` files are all empty. Planned to use OpenAI API (key already in `.env`). Add route in `api/` (e.g., `POST /chat`), implement agent in `agents/recommendation_agent.py`.
+1. **Vector DB** — semantic search is a brute-force cosine scan over all embeddings. Should migrate to `pgvector` or Pinecone for ANN search at scale.
 
-2. **Vector DB** — semantic search currently does brute-force cosine scan over all embeddings. Should migrate to `pgvector` extension or Pinecone for ANN search at scale.
+2. **Cold start** — new users with no ratings get empty personalized/collaborative rows. Consider falling back to popularity automatically.
 
-3. **Cold start** — new users get empty personalized/collaborative rows. Consider falling back to popularity for cold-start users.
+3. **CORS** — not configured in `main.py`. Required before deploying frontend and backend on separate origins.
 
-4. **CORS** — not yet configured in `main.py`. Required before frontend and backend are deployed on different origins.
+4. **Deployment** — Planned: React on Vercel, FastAPI on Render/Railway, cloud PostgreSQL (Neon URL already in `.env`).
 
-5. **Deployment** — Planned: React on Vercel, FastAPI on Render/Railway, cloud PostgreSQL (Neon URL already in `.env`).
+5. **Module-level preprocessing** — `content_engine.py` and `collaborative.py` run heavy ML on import, making the first server startup slow. Consider background startup tasks.
 
-6. **module-level preprocessing** — `content_engine.py` and `collaborative.py` run heavy ML pipelines on import. This means the first API request triggers slow load. Consider background startup tasks or caching.
+6. **User preference memory** — chat has no persistent memory between sessions. A `user_preferences` table (favourite_genres, disliked_genres etc.) would let the agent incorporate long-term preferences automatically.
+
+7. **AI endpoint authentication** — `/ai/recommend` and `/chat/` are currently unauthenticated. Adding `Depends(get_current_user)` would allow user-specific context (e.g. excluding already-watched movies from AI results).
+
+8. **LLM cost & latency** — each chat turn and AI recommendation makes 3 sequential GPT calls (~15–30s total). Candidates for optimization: cache parsed queries, parallelize reranker + explanation, use streaming for chat replies.

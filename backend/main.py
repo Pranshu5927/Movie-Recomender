@@ -9,6 +9,8 @@ from api.recommendations import (
     router as recommendations_router
 )
 from api.semantic import router as semantic_router
+from api.ai import router as ai_router
+from api.chat import router as chat_router
 
 app = FastAPI()
 
@@ -72,6 +74,20 @@ app.include_router(
 # ---------------------------------
 app.include_router(
     semantic_router
+)
+
+# ---------------------------------
+# AI ROUTES
+# ---------------------------------
+app.include_router(
+    ai_router
+)
+
+# ---------------------------------
+# CHAT ROUTES
+# ---------------------------------
+app.include_router(
+    chat_router
 )
 
 # ---------------------------------

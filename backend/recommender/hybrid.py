@@ -14,6 +14,8 @@ from explainability.recommendation_explainer import (
     RecommendationExplainer
 )
 
+from recommender.utils import normalize_scores
+
 
 # ---------------------------------
 # WEIGHTS
@@ -73,11 +75,13 @@ def get_hybrid_recommendations(
         if movie_id not in movie_scores:
 
             movie_scores[movie_id] = {
-                **movie,
-                "hybrid_score": 0,
-                "popularity_score": 0,
-                "content_score": 0,
-                "collaborative_score": 0
+                "movie_id": int(movie["movie_id"]),
+                "title": movie["title"],
+                "genres": movie["genres"],
+                "hybrid_score": 0.0,
+                "popularity_score": 0.0,
+                "content_score": 0.0,
+                "collaborative_score": 0.0
             }
 
         movie_scores[movie_id][
@@ -106,11 +110,13 @@ def get_hybrid_recommendations(
         if movie_id not in movie_scores:
 
             movie_scores[movie_id] = {
-                **movie,
-                "hybrid_score": 0,
-                "popularity_score": 0,
-                "content_score": 0,
-                "collaborative_score": 0
+                "movie_id": int(movie["movie_id"]),
+                "title": movie["title"],
+                "genres": movie["genres"],
+                "hybrid_score": 0.0,
+                "popularity_score": 0.0,
+                "content_score": 0.0,
+                "collaborative_score": 0.0
             }
 
         movie_scores[movie_id][
@@ -139,11 +145,13 @@ def get_hybrid_recommendations(
         if movie_id not in movie_scores:
 
             movie_scores[movie_id] = {
-                **movie,
-                "hybrid_score": 0,
-                "popularity_score": 0,
-                "content_score": 0,
-                "collaborative_score": 0
+                "movie_id": int(movie["movie_id"]),
+                "title": movie["title"],
+                "genres": movie["genres"],
+                "hybrid_score": 0.0,
+                "popularity_score": 0.0,
+                "content_score": 0.0,
+                "collaborative_score": 0.0
             }
 
         movie_scores[movie_id][
@@ -176,18 +184,28 @@ def get_hybrid_recommendations(
 
     for movie in ranked_movies[:top_n]:
 
-        movie[
-            "recommendation_source"
-        ] = "hybrid"
+        reasons = RecommendationExplainer.generate(movie)
 
-        movie[
-            "reasons"
-        ] = (
-            RecommendationExplainer.generate(
-                movie
-            )
-        )
+        final_movies.append({
+            "movie_id": movie["movie_id"],
+            "title": movie["title"],
+            "genres": movie["genres"],
 
-        final_movies.append(movie)
+            "score": float(movie["hybrid_score"]),
+
+            "recommendation_source": "hybrid",
+
+            "vote_count": None,
+
+            "reasons": reasons,
+
+            "metadata": {
+                "popularity_score": movie["popularity_score"],
+                "content_score": movie["content_score"],
+                "collaborative_score": movie["collaborative_score"]
+            }
+        })
+
+    final_movies = normalize_scores(final_movies)
 
     return final_movies

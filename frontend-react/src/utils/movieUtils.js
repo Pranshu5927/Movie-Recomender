@@ -44,13 +44,11 @@ export function getGenres(genres) {
 }
 
 export function formatScore(movie) {
-  const { score, recommendation_source } = movie
-  if (score == null) return null
-  if (recommendation_source === 'popularity') {
-    return { label: `★ ${Number(score).toFixed(1)}`, type: 'rating' }
+  if (movie.vote_count) {
+    return { label: `★ ${Number(movie.score).toFixed(1)}`, type: 'rating' }
   }
-  if (score >= 0 && score <= 1) {
-    return { label: `${Math.round(score * 100)}% Match`, type: 'match' }
+  if (movie.normalized_score != null) {
+    return { label: `${Math.round(movie.normalized_score * 100)}% Match`, type: 'match' }
   }
   return null
 }

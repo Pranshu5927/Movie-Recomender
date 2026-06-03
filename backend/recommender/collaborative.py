@@ -10,6 +10,8 @@ from scipy.sparse import csr_matrix
 
 from db.database import DATABASE_URL
 
+from recommender.utils import normalize_scores
+
 
 # ---------------------------------
 # LOAD DATABASE
@@ -194,15 +196,20 @@ def get_collaborative_recommendations(
 
             "genres": movie["genres"],
 
-            "score": round(
-                data["score"],
-                4
-            ),
+            "score": float(data["score"]),
 
-            "recommendation_source":
-                "collaborative"
+            "recommendation_source": "collaborative",
+
+            "vote_count": None,
+
+            "reasons": [
+                "Liked by users with similar tastes"
+            ],
+
+            "metadata": {}
 
         })
 
+    recommendations = normalize_scores(recommendations)
 
     return recommendations

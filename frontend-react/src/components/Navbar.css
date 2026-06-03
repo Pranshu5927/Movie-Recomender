@@ -52,6 +52,22 @@
   color: var(--text);
 }
 
+.navbar-ai-link {
+  font-size: 0.875rem;
+  font-weight: 700;
+  background: linear-gradient(135deg, #a78bfa, #e94560);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  transition: opacity 0.2s;
+}
+
+.navbar-ai-link:hover,
+.navbar-ai-link.active {
+  opacity: 0.85;
+  -webkit-text-fill-color: transparent;
+}
+
 /* Right */
 .navbar-right {
   display: flex;

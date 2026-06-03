@@ -11,6 +11,8 @@ from recommender.engines.content_engine import (
     vectors
 )
 
+from recommender.utils import normalize_scores
+
 
 def get_personalized_recommendations(
     user_id,
@@ -119,16 +121,23 @@ def get_personalized_recommendations(
             ),
             "title": movie["title"],
             "genres": movie["genres"],
-            "score": round(
-                float(score),
-                4
-            ),
-            "recommendation_source":
-                "personalized_content"
+
+            "score": float(score),
+
+            "recommendation_source": "personalized_content",
+
+            "vote_count": None,
+
+            "reasons": [
+                "Matches your viewing preferences"
+            ],
+
+            "metadata": {}
         })
 
         if len(recommendations) >= top_n:
             break
 
+    recommendations = normalize_scores(recommendations)
 
     return recommendations

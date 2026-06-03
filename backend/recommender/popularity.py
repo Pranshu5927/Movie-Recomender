@@ -2,6 +2,8 @@ from sqlalchemy import text
 
 from db.database import engine
 
+from recommender.utils import normalize_scores
+
 
 def get_popular_recommendations(user_id):
 
@@ -53,9 +55,22 @@ def get_popular_recommendations(user_id):
                 "movie_id": row.movie_id,
                 "title": row.title,
                 "genres": row.genres,
-                "score": round(float(row.avg_rating), 2),
-                "vote_count": row.rating_count,
-                "recommendation_source": "popularity"
+
+                "score": float(row.avg_rating),
+
+                "recommendation_source": "popularity",
+
+                "vote_count": int(row.rating_count),
+
+                "reasons": [
+                    "Highly rated by the community"
+                ],
+
+                "metadata": {
+                    "avg_rating": float(row.avg_rating)
+                }
             })
+
+    recommendations = normalize_scores(recommendations)
 
     return recommendations

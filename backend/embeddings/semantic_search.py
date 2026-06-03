@@ -32,6 +32,7 @@ def load_movie_embeddings():
     SELECT
         m.movie_id,
         m.title,
+        m.genres,
         me.embedding
     FROM movies m
     JOIN movie_embeddings me
@@ -61,13 +62,12 @@ def semantic_search(
             [movie_embedding]
         )[0][0]
 
-        scores.append(
-        {
+        scores.append({
             "movie_id": int(row["movie_id"]),
             "title": row["title"],
+            "genres": row["genres"],
             "score": round(float(score), 4)
-        }
-    )
+        })
     scores.sort(
         key=lambda x: x["score"],
         reverse=True

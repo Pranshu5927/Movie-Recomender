@@ -55,6 +55,12 @@ export default function Navbar() {
           <Link to="/" className={location.pathname === '/' ? 'active' : ''}>Home</Link>
           <Link to="/watchlist" className={location.pathname === '/watchlist' ? 'active' : ''}>My List</Link>
           <Link to="/search" className={location.pathname === '/search' ? 'active' : ''}>Browse</Link>
+          <Link to="/ai" className={`navbar-ai-link${location.pathname === '/ai' ? ' active' : ''}`}>
+            AI Picks
+          </Link>
+          <Link to="/chat" className={`navbar-ai-link${location.pathname === '/chat' ? ' active' : ''}`}>
+            Chat
+          </Link>
         </div>
       </div>
 

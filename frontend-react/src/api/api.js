@@ -56,3 +56,16 @@ export const watchlistAPI = {
 export const usersAPI = {
   getMe: () => api.get('/me'),
 }
+
+export const aiAPI = {
+  recommend: (query) =>
+    api.get('/ai/recommend', {
+      params: { query },
+      timeout: 60000,
+    }),
+}
+
+export const chatAPI = {
+  send: (message, history) =>
+    api.post('/chat/', { message, history }, { timeout: 90000 }),
+}

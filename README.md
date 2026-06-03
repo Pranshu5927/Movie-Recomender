@@ -1,29 +1,31 @@
 # Movie Recommender System
 
-A production-style movie recommendation platform built in progressive layers — from popularity-based ranking to collaborative filtering and hybrid ensemble systems, with a roadmap toward semantic AI search and a conversational recommender agent.
+A production-style AI movie recommendation platform built in progressive layers — from popularity-based ranking through collaborative filtering, semantic embeddings, an LLM-powered recommendation engine, and a conversational AI recommender with multi-turn memory.
 
 ## Vision
 
-Inspired by systems used at Netflix, Spotify, YouTube, and Amazon. The project is intentionally built in layers to learn backend engineering, recommender systems, ML systems, vector search, MLOps, and production deployment.
+Inspired by systems used at Netflix, Spotify, YouTube, and Amazon. Built iteratively to learn backend engineering, recommender systems, ML systems, vector search, LLM integration, and production deployment.
 
-Evolution path:
+**Evolution path:**
 
 1. Popularity-based recommendations ✅
 2. Content-based filtering ✅
-3. Collaborative filtering ✅
+3. Collaborative filtering (SVD) ✅
 4. Hybrid recommendation systems ✅
 5. Semantic embeddings + semantic search ✅
-6. Fully deployed production architecture _(roadmap)_
+6. AI recommendation engine (LLM query parsing + re-ranking) ✅
+7. Conversational AI recommender (multi-turn chat with memory) ✅
+8. Deployment pipeline 🔜
 
 ---
 
 ## Tech Stack
 
-**Backend:** Python, FastAPI, SQLAlchemy, PostgreSQL, psycopg2, Pandas, scikit-learn
+**Backend:** Python, FastAPI, SQLAlchemy, PostgreSQL, psycopg2, Pandas, scikit-learn, OpenAI (gpt-4.1-mini)
 
-**Frontend:** React 18 + Vite 5, React Router DOM v6, Axios _(current)_ · Streamlit prototype also in `frontend/`
+**Frontend:** React 18 + Vite 5, React Router DOM v6, Axios
 
-**ML:** TF-IDF Vectorization, Cosine Similarity, TruncatedSVD, Hybrid Recommendation Systems, sentence-transformers (`all-MiniLM-L6-v2`), Semantic Search
+**ML:** TF-IDF Vectorization, Cosine Similarity, TruncatedSVD, sentence-transformers (`all-MiniLM-L6-v2`)
 
 **Dataset:** MovieLens `ml-latest-small` — `movies.csv`, `ratings.csv`, `tags.csv`
 
@@ -31,44 +33,68 @@ Evolution path:
 
 ## Project Structure
 
-```text
+```
 movie-recommender/
 ├── backend/
-│   ├── api/                    # HTTP routes, auth, query params
-│   │   ├── auth.py
-│   │   ├── users.py
-│   │   ├── ratings.py
-│   │   ├── watchlist.py
-│   │   ├── recommendations.py
-│   │   └── semantic.py         # GET /search/semantic
+│   ├── main.py                 # FastAPI entry — registers all routers
+│   ├── api/
+│   │   ├── auth.py             # POST /auth/signup, /auth/login
+│   │   ├── users.py            # GET /me
+│   │   ├── movies.py           # GET /movies, /movies/search
+│   │   ├── ratings.py          # POST /rate
+│   │   ├── watchlist.py        # /watchlist/*
+│   │   ├── recommendations.py  # GET /recommendations, /recommendations/content
+│   │   ├── semantic.py         # GET /search/semantic
+│   │   ├── ai.py               # GET /ai/recommend
+│   │   └── chat.py             # POST /chat/
 │   ├── db/
-│   ├── models/
-│   ├── embeddings/             # Semantic search & embedding logic
-│   │   ├── embedding_service.py
-│   │   ├── movie_embeddings.py
-│   │   └── semantic_search.py
-│   ├── recommender/            # Recommendation algorithms & ranking
-│   │   ├── engines/
-│   │   │   └── content_engine.py
+│   │   └── database.py
+│   ├── schemas/
+│   │   ├── auth.py
+│   │   ├── rating.py
+│   │   ├── watchlist.py
+│   │   └── recommendation.py   # Unified Recommendation schema
+│   ├── utils/
+│   │   └── auth.py             # JWT + get_current_user dependency
+│   ├── recommender/
+│   │   ├── utils.py            # normalize_scores()
 │   │   ├── popularity.py
 │   │   ├── content_based.py
 │   │   ├── personalized_content.py
 │   │   ├── collaborative.py
-│   │   └── hybrid.py
+│   │   ├── hybrid.py
+│   │   └── engines/
+│   │       └── content_engine.py
 │   ├── services/
 │   │   ├── recommendation_service.py
 │   │   └── semantic_service.py
-│   ├── scripts/
-│   │   └── generate_movie_embeddings.py
-│   └── utils/
-├── frontend/                   # Streamlit prototype (Python)
-├── frontend-react/             # React app (current)
-│   ├── index.html
-│   ├── vite.config.js
+│   ├── embeddings/
+│   │   ├── embedding_service.py
+│   │   └── semantic_search.py
+│   ├── explainability/
+│   │   └── recommendation_explainer.py
+│   ├── ai/                     # LLM-powered recommendation engine
+│   │   ├── schemas.py
+│   │   ├── llm_service.py      # Single OpenAI wrapper
+│   │   ├── query_parser.py
+│   │   ├── recommendation_pipeline.py
+│   │   ├── reranker.py
+│   │   └── explanation_generator.py
+│   ├── agents/                 # Conversational AI agent
+│   │   ├── schemas.py
+│   │   ├── prompts.py
+│   │   ├── chatbot.py          # Multi-turn intent extraction
+│   │   └── recommendation_agent.py
+│   └── scripts/
+│       ├── seed_movies.py
+│       ├── seed_ratings.py
+│       ├── seed_tags.py
+│       └── generate_movie_embeddings.py
+├── frontend-react/
 │   └── src/
-│       ├── App.jsx
-│       ├── api/
-│       │   └── api.js          # Axios API client
+│       ├── api/api.js
+│       ├── context/AuthContext.jsx
+│       ├── utils/movieUtils.js
 │       ├── components/
 │       │   ├── HeroBanner.jsx
 │       │   ├── MovieCard.jsx
@@ -76,90 +102,121 @@ movie-recommender/
 │       │   ├── MovieRow.jsx
 │       │   ├── Navbar.jsx
 │       │   └── ProtectedRoute.jsx
-│       ├── context/
-│       │   └── AuthContext.jsx
-│       ├── pages/
-│       │   ├── Auth.jsx
-│       │   ├── Home.jsx
-│       │   ├── Search.jsx
-│       │   └── Watchlist.jsx
-│       └── utils/
-│           └── movieUtils.js
-├── data/
-├── notebooks/
-├── docker/
+│       └── pages/
+│           ├── Auth.jsx
+│           ├── Home.jsx
+│           ├── Search.jsx
+│           ├── Watchlist.jsx
+│           ├── AIRecommend.jsx  # Natural-language AI recommendations
+│           └── Chat.jsx         # Multi-turn conversational recommender
+├── data/ml-latest-small/
 ├── requirements.txt
-└── README.md
+└── context.md                  # Full LLM-readable codebase context
 ```
 
 ---
 
 ## Architecture
 
-The project separates concerns into four layers, mirroring real production recommendation systems:
+Four backend layers mirror real production recommendation systems:
 
 | Layer | Folder | Responsibility |
 |---|---|---|
-| API | `api/` | HTTP routes, authentication, request handling |
-| Service | `services/` | Orchestration, homepage assembly, combining recommenders |
+| API | `api/` | HTTP routes, auth, request handling |
+| Service | `services/` | Orchestration, homepage assembly |
 | Recommender | `recommender/` | Algorithms, ranking, scoring |
-| Engine | `recommender/engines/` | Preprocessing, vectorization, similarity matrices, ML pipelines |
+| Engine | `recommender/engines/` | Preprocessing, vectorization, ML pipelines |
+
+Two AI layers sit on top:
+
+| Layer | Folder | Responsibility |
+|---|---|---|
+| AI | `ai/` | LLM query parsing, candidate retrieval, re-ranking, explanation |
+| Agent | `agents/` | Multi-turn conversation, intent extraction across turns |
 
 ---
 
 ## Recommendation Systems
 
-### 1. Popularity-Based — `recommender/popularity.py`
-Aggregates MovieLens ratings, scores by average with a minimum rating threshold, and excludes already-rated movies. Surfaces the **Must Watch** row.
+### Traditional Recommenders
 
-### 2. Content-Based Filtering — `recommender/content_based.py`
-Pipeline: load movies + tags → clean genres → aggregate tags → build content column → lowercase + stem (NLTK PorterStemmer) → TF-IDF Vectorization → Cosine Similarity. Surfaces the **More Like This** row.
+All recommenders return a **unified schema** with `score`, `normalized_score`, `vote_count`, `reasons`, and `metadata`. Normalization is applied server-side — the frontend never manipulates scores.
 
-### 3. Personalized Content — `recommender/personalized_content.py`
-Analyzes user watch history, fetches similar movies via content engine, aggregates and deduplicates, removes watched movies. Surfaces the **Personalized Content** row.
+| Recommender | File | Algorithm | Homepage Row |
+|---|---|---|---|
+| Popularity | `popularity.py` | AVG rating, COUNT > 50 | 🔥 Must Watch |
+| Content-Based | `content_based.py` | TF-IDF + cosine similarity | 🎭 More Like This |
+| Personalized | `personalized_content.py` | User TF-IDF profile vector | 🧠 Personalized |
+| Collaborative | `collaborative.py` | TruncatedSVD + user similarity | 👥 Users Also Liked |
+| Hybrid | `hybrid.py` | Weighted ensemble (pop 0.2 · content 0.4 · collab 0.4) | 🔄 Hybrid |
 
-### 4. Collaborative Filtering — `recommender/collaborative.py`
-Builds a user-movie sparse matrix, applies TruncatedSVD (`R ≈ UΣVᵀ`), learns latent embeddings, finds similar users, and recommends highly-rated unseen movies. Surfaces the **Users Also Liked** row.
+### Semantic Search
 
-### 5. Hybrid Recommender — `recommender/hybrid.py`
-Ensemble of popularity + content-based + collaborative filtering:
+`scripts/generate_movie_embeddings.py` encodes each movie's title + genres + tags with `all-MiniLM-L6-v2` and stores the 384-dim vectors in PostgreSQL. At query time, `semantic_search.py` encodes the query and does a brute-force cosine similarity scan.
 
-```python
-POPULARITY_WEIGHT    = 0.2
-CONTENT_WEIGHT       = 0.4
-COLLABORATIVE_WEIGHT = 0.4
+Exposed as `GET /search/semantic` and as a toggle in the Browse page.
+
+### AI Recommendation Engine (`GET /ai/recommend`)
+
+Three sequential LLM calls via `gpt-4.1-mini`:
+1. **Query Parser** — extracts genres, moods, themes, similar_to titles from natural language
+2. **Candidate Retrieval** — pulls up to 50 candidates from semantic search + content-based + popularity
+3. **Re-ranker** — LLM ranks candidates by relevance to the original query
+4. **Explanation Generator** — writes a 2–3 sentence explanation of why the films fit
+
+Example:
+```
+GET /ai/recommend?query=dark sci-fi movies like Interstellar
+
+→ {
+    "query": "dark sci-fi movies like Interstellar",
+    "explanation": "Arrival and Moon share Interstellar's introspective, cerebral approach...",
+    "movies": [...]
+  }
 ```
 
-Surfaces the **Personalized For You** row.
+### Conversational Recommender (`POST /chat/`)
 
-### 6. Semantic Search — `embeddings/semantic_search.py`
-Offline step: `scripts/generate_movie_embeddings.py` builds a content string per movie (title + genres + tags), encodes it with `sentence-transformers` (`all-MiniLM-L6-v2`), and upserts vectors into the `movie_embeddings` PostgreSQL table. At query time, the query string is encoded and cosine similarity is computed against all stored embeddings to return the top-K results. Exposed via `GET /search/semantic`.
+Multi-turn chat where each turn:
+1. **Intent Extraction** — LLM sees full conversation history and collapses it into a standalone search query
+2. **Recommendation Pipeline** — runs the full AI pipeline on the extracted intent
+3. **Explanation** — LLM generates a conversational reply
+
+```
+Turn 1: "Recommend mind-bending sci-fi"         → intent: "mind-bending sci-fi"
+Turn 2: "Something darker"                       → intent: "dark mind-bending sci-fi"
+Turn 3: "Nothing too old"                        → intent: "dark mind-bending sci-fi after 2000"
+```
 
 ---
 
 ## API Reference
 
-```text
-POST  /auth/signup
-POST  /auth/login
-GET   /me
+```
+POST  /auth/signup                           Register new user
+POST  /auth/login                            Authenticate, get JWT
 
-GET   /movies
-GET   /movies/search
+GET   /me                          (auth)   Current user info
 
-POST  /rate
+GET   /movies                               List movies
+GET   /movies/search?query=...              Keyword search
 
-POST  /watchlist/add
-GET   /watchlist
-POST  /watchlist/remove
+POST  /rate                        (auth)   Submit 1–5 star rating
 
-GET   /recommendations
-GET   /recommendations/content
+POST  /watchlist/add               (auth)   Add to watchlist
+GET   /watchlist                   (auth)   Get watchlist
+DELETE /watchlist/{movie_id}       (auth)   Remove from watchlist
 
-GET   /search/semantic?query=...&limit=10
+GET   /recommendations             (auth)   Netflix-style homepage (4 rows)
+GET   /recommendations/content?movie_title= More Like This
+
+GET   /search/semantic?query=...            Semantic search
+
+GET   /ai/recommend?query=...               AI-powered recommendation
+POST  /chat/                                Conversational recommender
 ```
 
-Authentication uses JWT. Protected routes depend on `get_current_user`. Secret key stored in `.env`.
+Auth header: `Authorization: Bearer <token>`
 
 ---
 
@@ -173,63 +230,92 @@ Authentication uses JWT. Protected routes depend on `get_current_user`. Secret k
 | `ml_ratings` | user_id, movie_id, rating, timestamp _(MovieLens data)_ |
 | `tags` | user_id, movie_id, tag, timestamp |
 | `watchlist` | id, user_id, movie_id, created_at |
+| `movie_embeddings` | movie_id, embedding (JSON, 384-dim) |
+
+---
+
+## Frontend Pages
+
+| Route | Page | Description |
+|---|---|---|
+| `/auth` | Auth | Login / Sign Up |
+| `/` | Home | Netflix-style homepage with 4 recommendation rows |
+| `/search` | Search | Keyword + semantic search with mode toggle |
+| `/watchlist` | Watchlist | User's saved movies |
+| `/ai` | AI Picks | Natural-language AI recommendation with explanation |
+| `/chat` | Chat | Multi-turn conversational recommender |
 
 ---
 
 ## Getting Started
 
-1. Create a virtual environment:
-   ```bash
-   python -m venv .venv
-   .\.venv\Scripts\activate
-   ```
-2. Install dependencies:
-   ```bash
-   pip install -r requirements.txt
-   ```
-3. Set up your `.env` with database credentials and JWT secret key.
-4. Download MovieLens `ml-latest-small` and place `movies.csv`, `ratings.csv`, `tags.csv` under `data/`.
-5. Run the API:
-   ```bash
-   uvicorn backend.api.main:app --reload
-   ```
-6. Run the React frontend:
-   ```bash
-   cd frontend-react
-   npm install
-   npm run dev
-   ```
-   The app will be available at `http://localhost:5173`.
+### Prerequisites
 
----
+- Python 3.10+
+- Node.js 18+
+- PostgreSQL running locally
+- OpenAI API key
 
-## Homepage Layout
+### Backend
 
-Netflix-style homepage assembled by `services/recommendation_service.py`:
+```bash
+cd backend
+python -m venv .venv
+.\.venv\Scripts\activate        # Windows
+# source .venv/bin/activate     # macOS/Linux
 
+pip install -r requirements.txt
 ```
-[ Search Bar ]
---------------------------------------------------
-🔥  Must Watch            (popularity-based)
-🎭  More Like {movie}     (content-based)
-👥  Users Also Liked      (collaborative filtering)
-🧠  Personalized For You  (hybrid ensemble)
---------------------------------------------------
+
+Create `backend/.env`:
 ```
+DATABASE_PASSWORD=your_pg_password
+SECRET_KEY=your_jwt_secret
+OPENAI_API_KEY=sk-proj-...
+```
+
+Seed the database:
+```bash
+python scripts/seed_movies.py
+python scripts/seed_ratings.py
+python scripts/seed_tags.py
+python scripts/generate_movie_embeddings.py  # takes a few minutes
+```
+
+Start the API:
+```bash
+uvicorn main:app --reload
+# Runs on http://localhost:8000
+```
+
+### Frontend
+
+```bash
+cd frontend-react
+npm install
+npm run dev
+# Runs on http://localhost:3000
+```
+
+The Vite dev server proxies `/api/*` to `http://localhost:8000`.
 
 ---
 
 ## Roadmap
 
-**AI & Embeddings**
-- [x] sentence-transformers (`all-MiniLM-L6-v2`) embeddings stored in PostgreSQL
-- [x] Semantic search via cosine similarity (`GET /search/semantic`)
-- [x] Semantic search toggle in React frontend
+**Completed**
+- [x] Popularity, content-based, collaborative, hybrid recommenders
+- [x] Unified `Recommendation` schema with normalized scores across all sources
+- [x] Semantic embeddings (all-MiniLM-L6-v2) stored in PostgreSQL
+- [x] Semantic search (keyword + semantic toggle in Browse)
+- [x] AI recommendation engine (`GET /ai/recommend`) with LLM query parsing + re-ranking
+- [x] Conversational recommender (`POST /chat/`) with multi-turn intent memory
+- [x] React frontend: Home, Search, Watchlist, AI Picks, Chat pages
+
+**Next**
+- [ ] User preference memory (persistent `user_preferences` table for long-term personalization)
 - [ ] Vector database (pgvector / Pinecone) for scalable ANN search
-- [ ] Conversational recommender agent ("Movies like Interstellar but darker")
-
-**Service Layer**
-- [ ] Trending row
-- [ ] Continue Watching
-- [ ] Because You Watched
-
+- [ ] Auth on AI/chat endpoints + exclude watched movies from AI results
+- [ ] LLM response streaming for faster chat feel
+- [ ] CORS configuration for deployment
+- [ ] Deployment: React → Vercel, FastAPI → Render/Railway, DB → Neon
