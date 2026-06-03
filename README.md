@@ -221,15 +221,6 @@ Netflix-style homepage assembled by `services/recommendation_service.py`:
 
 ## Roadmap
 
-**Frontend**
-- [x] React 18 + Vite frontend (`frontend-react/`)
-- [x] Netflix-style homepage with movie rows (HeroBanner, MovieRow, MovieCard)
-- [x] Movie detail modal (MovieModal)
-- [x] Auth pages, Search page, Watchlist page
-- [x] JWT auth via React Context (AuthContext)
-- [ ] Next.js migration _(optional — for SSR/SEO)_
-- [ ] Hover previews / trailer embeds
-
 **AI & Embeddings**
 - [x] sentence-transformers (`all-MiniLM-L6-v2`) embeddings stored in PostgreSQL
 - [x] Semantic search via cosine similarity (`GET /search/semantic`)
@@ -242,8 +233,3 @@ Netflix-style homepage assembled by `services/recommendation_service.py`:
 - [ ] Continue Watching
 - [ ] Because You Watched
 
-**Deployment**
-- [ ] React frontend → Vercel
-- [ ] FastAPI backend → Render / Railway
-- [ ] PostgreSQL cloud deployment
-- [ ] Docker, CI/CD pipelines
