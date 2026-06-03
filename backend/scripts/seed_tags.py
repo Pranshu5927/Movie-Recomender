@@ -13,19 +13,19 @@ import os
 load_dotenv()
 
 # Get DB password
-# DATABASE_PASSWORD = os.getenv("DATABASE_PASSWORD")
+DATABASE_PASSWORD = os.getenv("DATABASE_PASSWORD")
 
-# # Create database URL safely
-# DATABASE_URL = URL.create(
-#     drivername="postgresql+psycopg2",
-#     username="postgres",
-#     password=DATABASE_PASSWORD,
-#     host="127.0.0.1",
-#     port=5432,
-#     database="movie_recommender"
-# )
+# Create database URL safely
+DATABASE_URL = URL.create(
+    drivername="postgresql+psycopg2",
+    username="postgres",
+    password=DATABASE_PASSWORD,
+    host="127.0.0.1",
+    port=5432,
+    database="movie_recommender"
+)
 
-DATABASE_URL = os.getenv("DATABASE_URL")
+# DATABASE_URL = os.getenv("DATABASE_URL")
 
 # ---------------------------------
 # CREATE ENGINE

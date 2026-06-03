@@ -55,6 +55,10 @@
   color: #ffd700;
 }
 
+.card-score--match {
+  color: #4ade80;
+}
+
 .card-info {
   display: flex;
   flex-direction: column;
@@ -148,4 +152,22 @@
 .card-hover-genres {
   font-size: 0.62rem;
   color: rgba(255,255,255,0.65);
+}
+
+.card-hover-reasons {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin-top: 6px;
+}
+
+.card-reason-tag {
+  font-size: 0.56rem;
+  font-weight: 600;
+  color: rgba(255, 215, 0, 0.9);
+  background: rgba(255, 215, 0, 0.1);
+  border: 1px solid rgba(255, 215, 0, 0.25);
+  border-radius: 3px;
+  padding: 2px 5px;
+  line-height: 1.3;
 }

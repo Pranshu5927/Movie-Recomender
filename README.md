@@ -12,7 +12,7 @@ Evolution path:
 2. Content-based filtering ✅
 3. Collaborative filtering ✅
 4. Hybrid recommendation systems ✅
-5. Semantic embeddings + AI conversational recommender _(roadmap)_
+5. Semantic embeddings + semantic search ✅
 6. Fully deployed production architecture _(roadmap)_
 
 ---
@@ -23,7 +23,7 @@ Evolution path:
 
 **Frontend:** React 18 + Vite 5, React Router DOM v6, Axios _(current)_ · Streamlit prototype also in `frontend/`
 
-**ML:** TF-IDF Vectorization, Cosine Similarity, TruncatedSVD, Hybrid Recommendation Systems
+**ML:** TF-IDF Vectorization, Cosine Similarity, TruncatedSVD, Hybrid Recommendation Systems, sentence-transformers (`all-MiniLM-L6-v2`), Semantic Search
 
 **Dataset:** MovieLens `ml-latest-small` — `movies.csv`, `ratings.csv`, `tags.csv`
 
@@ -39,9 +39,14 @@ movie-recommender/
 │   │   ├── users.py
 │   │   ├── ratings.py
 │   │   ├── watchlist.py
-│   │   └── recommendations.py
+│   │   ├── recommendations.py
+│   │   └── semantic.py         # GET /search/semantic
 │   ├── db/
 │   ├── models/
+│   ├── embeddings/             # Semantic search & embedding logic
+│   │   ├── embedding_service.py
+│   │   ├── movie_embeddings.py
+│   │   └── semantic_search.py
 │   ├── recommender/            # Recommendation algorithms & ranking
 │   │   ├── engines/
 │   │   │   └── content_engine.py
@@ -51,7 +56,10 @@ movie-recommender/
 │   │   ├── collaborative.py
 │   │   └── hybrid.py
 │   ├── services/
-│   │   └── recommendation_service.py
+│   │   ├── recommendation_service.py
+│   │   └── semantic_service.py
+│   ├── scripts/
+│   │   └── generate_movie_embeddings.py
 │   └── utils/
 ├── frontend/                   # Streamlit prototype (Python)
 ├── frontend-react/             # React app (current)
@@ -124,6 +132,9 @@ COLLABORATIVE_WEIGHT = 0.4
 
 Surfaces the **Personalized For You** row.
 
+### 6. Semantic Search — `embeddings/semantic_search.py`
+Offline step: `scripts/generate_movie_embeddings.py` builds a content string per movie (title + genres + tags), encodes it with `sentence-transformers` (`all-MiniLM-L6-v2`), and upserts vectors into the `movie_embeddings` PostgreSQL table. At query time, the query string is encoded and cosine similarity is computed against all stored embeddings to return the top-K results. Exposed via `GET /search/semantic`.
+
 ---
 
 ## API Reference
@@ -144,6 +155,8 @@ POST  /watchlist/remove
 
 GET   /recommendations
 GET   /recommendations/content
+
+GET   /search/semantic?query=...&limit=10
 ```
 
 Authentication uses JWT. Protected routes depend on `get_current_user`. Secret key stored in `.env`.
@@ -218,8 +231,10 @@ Netflix-style homepage assembled by `services/recommendation_service.py`:
 - [ ] Hover previews / trailer embeds
 
 **AI & Embeddings**
-- [ ] Sentence transformers / OpenAI embeddings
-- [ ] Vector database for semantic search
+- [x] sentence-transformers (`all-MiniLM-L6-v2`) embeddings stored in PostgreSQL
+- [x] Semantic search via cosine similarity (`GET /search/semantic`)
+- [x] Semantic search toggle in React frontend
+- [ ] Vector database (pgvector / Pinecone) for scalable ANN search
 - [ ] Conversational recommender agent ("Movies like Interstellar but darker")
 
 **Service Layer**

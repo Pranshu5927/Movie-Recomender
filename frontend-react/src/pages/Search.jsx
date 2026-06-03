@@ -3,7 +3,7 @@ import { useSearchParams, useNavigate } from 'react-router-dom'
 import Navbar from '../components/Navbar'
 import MovieCard from '../components/MovieCard'
 import MovieModal from '../components/MovieModal'
-import { moviesAPI } from '../api/api'
+import { moviesAPI, semanticAPI } from '../api/api'
 import './Search.css'
 
 export default function Search() {
@@ -14,16 +14,19 @@ export default function Search() {
   const [loading, setLoading] = useState(false)
   const [hasSearched, setHasSearched] = useState(false)
   const [selectedMovie, setSelectedMovie] = useState(null)
+  const [searchMode, setSearchMode] = useState('keyword')
   const inputRef = useRef(null)
   const debounceRef = useRef(null)
 
-  const doSearch = useCallback(async (q) => {
+  const doSearch = useCallback(async (q, mode) => {
     if (!q.trim()) { setResults([]); setHasSearched(false); return }
     setLoading(true)
     setHasSearched(true)
     try {
-      const res = await moviesAPI.search(q)
-      setResults(res.data)
+      const res = mode === 'semantic'
+        ? await semanticAPI.search(q)
+        : await moviesAPI.search(q)
+      setResults(mode === 'semantic' ? res.data.results : res.data)
     } catch {
       setResults([])
     } finally {
@@ -34,14 +37,18 @@ export default function Search() {
   useEffect(() => {
     inputRef.current?.focus()
     const q = searchParams.get('q')
-    if (q) { setQuery(q); doSearch(q) }
+    if (q) { setQuery(q); doSearch(q, searchMode) }
   }, [])
+
+  useEffect(() => {
+    if (query.trim()) doSearch(query, searchMode)
+  }, [searchMode])
 
   const handleChange = (e) => {
     const val = e.target.value
     setQuery(val)
     clearTimeout(debounceRef.current)
-    debounceRef.current = setTimeout(() => doSearch(val), 380)
+    debounceRef.current = setTimeout(() => doSearch(val, searchMode), 380)
   }
 
   const handleSubmit = (e) => {
@@ -49,7 +56,7 @@ export default function Search() {
     clearTimeout(debounceRef.current)
     if (query.trim()) {
       navigate(`/search?q=${encodeURIComponent(query.trim())}`, { replace: true })
-      doSearch(query)
+      doSearch(query, searchMode)
     }
   }
 
@@ -93,6 +100,21 @@ export default function Search() {
             )}
           </div>
         </form>
+
+        <div className="search-mode-toggle">
+          <button
+            className={`mode-btn${searchMode === 'keyword' ? ' active' : ''}`}
+            onClick={() => setSearchMode('keyword')}
+          >
+            Keyword
+          </button>
+          <button
+            className={`mode-btn${searchMode === 'semantic' ? ' active' : ''}`}
+            onClick={() => setSearchMode('semantic')}
+          >
+            Semantic
+          </button>
+        </div>
 
         {loading && (
           <div className="search-loading"><div className="spinner" /></div>

@@ -1,4 +1,4 @@
-import { getGenreGradient, getCleanTitle, getYear, getGenres } from '../utils/movieUtils'
+import { getGenreGradient, getCleanTitle, getYear, getGenres, formatScore } from '../utils/movieUtils'
 import './MovieCard.css'
 
 export default function MovieCard({ movie, onClick }) {
@@ -6,6 +6,7 @@ export default function MovieCard({ movie, onClick }) {
   const year = getYear(movie.title)
   const genres = getGenres(movie.genres)
   const gradient = getGenreGradient(movie.genres)
+  const scoreInfo = formatScore(movie)
 
   return (
     <div
@@ -19,8 +20,10 @@ export default function MovieCard({ movie, onClick }) {
 
       {/* Default view */}
       <div className="card-default">
-        {movie.score && (
-          <div className="card-score">★ {Number(movie.score).toFixed(1)}</div>
+        {scoreInfo && (
+          <div className={`card-score${scoreInfo.type === 'match' ? ' card-score--match' : ''}`}>
+            {scoreInfo.label}
+          </div>
         )}
         <div className="card-info">
           <div className="card-genre-tags">
@@ -43,6 +46,13 @@ export default function MovieCard({ movie, onClick }) {
         <div className="card-hover-text">
           <p className="card-hover-title">{cleanTitle}</p>
           <p className="card-hover-genres">{genres.slice(0, 3).join(' · ')}</p>
+          {movie.reasons?.length > 0 && (
+            <div className="card-hover-reasons">
+              {movie.reasons.slice(0, 2).map((r, i) => (
+                <span key={i} className="card-reason-tag">{r}</span>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </div>

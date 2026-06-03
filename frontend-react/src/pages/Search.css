@@ -110,6 +110,35 @@
 
 .search-results-count strong { color: var(--text-secondary); }
 
+.search-mode-toggle {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 28px;
+}
+
+.mode-btn {
+  padding: 6px 18px;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  border: 1px solid rgba(255,255,255,0.15);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.mode-btn:hover {
+  border-color: rgba(255,255,255,0.3);
+  color: var(--text-secondary);
+}
+
+.mode-btn.active {
+  background: #e94560;
+  border-color: #e94560;
+  color: #fff;
+}
+
 .search-grid {
   display: flex;
   flex-wrap: wrap;

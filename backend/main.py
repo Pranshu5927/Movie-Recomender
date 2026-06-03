@@ -8,6 +8,7 @@ from api.watchlist import router as watchlist_router
 from api.recommendations import (
     router as recommendations_router
 )
+from api.semantic import router as semantic_router
 
 app = FastAPI()
 
@@ -66,6 +67,12 @@ app.include_router(
     tags=["Recommendations"]
 )
 
+# ---------------------------------
+# SEMANTIC SEARCH ROUTES
+# ---------------------------------
+app.include_router(
+    semantic_router
+)
 
 # ---------------------------------
 # HEALTH CHECK

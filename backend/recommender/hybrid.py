@@ -10,10 +10,15 @@ from recommender.collaborative import (
     get_collaborative_recommendations
 )
 
+from explainability.recommendation_explainer import (
+    RecommendationExplainer
+)
+
 
 # ---------------------------------
 # WEIGHTS
 # ---------------------------------
+
 POPULARITY_WEIGHT = 0.2
 
 CONTENT_WEIGHT = 0.4
@@ -24,20 +29,17 @@ COLLABORATIVE_WEIGHT = 0.4
 # ---------------------------------
 # HYBRID RECOMMENDER
 # ---------------------------------
+
 def get_hybrid_recommendations(
     user_id,
     top_n=20
 ):
 
-    # ---------------------------------
-    # FETCH RECOMMENDATIONS
-    # ---------------------------------
     popularity_movies = (
         get_popular_recommendations(
             user_id
         )
     )
-
 
     content_movies = (
         get_personalized_recommendations(
@@ -45,24 +47,21 @@ def get_hybrid_recommendations(
         )
     )
 
-
     collaborative_movies = (
         get_collaborative_recommendations(
             user_id
         )
     )
 
-
-    # ---------------------------------
-    # COMBINE SCORES
-    # ---------------------------------
     movie_scores = {}
-
 
     # ---------------------------------
     # POPULARITY
     # ---------------------------------
-    for rank, movie in enumerate(popularity_movies):
+
+    for rank, movie in enumerate(
+        popularity_movies
+    ):
 
         movie_id = movie["movie_id"]
 
@@ -73,22 +72,29 @@ def get_hybrid_recommendations(
 
         if movie_id not in movie_scores:
 
-            movie_scores[movie_id] = movie
-
-            movie_scores[movie_id][
-                "hybrid_score"
-            ] = 0
-
+            movie_scores[movie_id] = {
+                **movie,
+                "hybrid_score": 0,
+                "popularity_score": 0,
+                "content_score": 0,
+                "collaborative_score": 0
+            }
 
         movie_scores[movie_id][
             "hybrid_score"
         ] += score
 
+        movie_scores[movie_id][
+            "popularity_score"
+        ] += score
 
     # ---------------------------------
     # CONTENT
     # ---------------------------------
-    for rank, movie in enumerate(content_movies):
+
+    for rank, movie in enumerate(
+        content_movies
+    ):
 
         movie_id = movie["movie_id"]
 
@@ -99,21 +105,26 @@ def get_hybrid_recommendations(
 
         if movie_id not in movie_scores:
 
-            movie_scores[movie_id] = movie
-
-            movie_scores[movie_id][
-                "hybrid_score"
-            ] = 0
-
+            movie_scores[movie_id] = {
+                **movie,
+                "hybrid_score": 0,
+                "popularity_score": 0,
+                "content_score": 0,
+                "collaborative_score": 0
+            }
 
         movie_scores[movie_id][
             "hybrid_score"
         ] += score
 
+        movie_scores[movie_id][
+            "content_score"
+        ] += score
 
     # ---------------------------------
     # COLLABORATIVE
     # ---------------------------------
+
     for rank, movie in enumerate(
         collaborative_movies
     ):
@@ -127,21 +138,26 @@ def get_hybrid_recommendations(
 
         if movie_id not in movie_scores:
 
-            movie_scores[movie_id] = movie
-
-            movie_scores[movie_id][
-                "hybrid_score"
-            ] = 0
-
+            movie_scores[movie_id] = {
+                **movie,
+                "hybrid_score": 0,
+                "popularity_score": 0,
+                "content_score": 0,
+                "collaborative_score": 0
+            }
 
         movie_scores[movie_id][
             "hybrid_score"
         ] += score
 
+        movie_scores[movie_id][
+            "collaborative_score"
+        ] += score
 
     # ---------------------------------
-    # SORT FINAL RESULTS
+    # SORT
     # ---------------------------------
+
     ranked_movies = sorted(
 
         movie_scores.values(),
@@ -152,12 +168,11 @@ def get_hybrid_recommendations(
 
     )
 
+    # ---------------------------------
+    # ADD EXPLANATIONS
+    # ---------------------------------
 
-    # ---------------------------------
-    # ADD SOURCE LABEL
-    # ---------------------------------
     final_movies = []
-
 
     for movie in ranked_movies[:top_n]:
 
@@ -165,7 +180,14 @@ def get_hybrid_recommendations(
             "recommendation_source"
         ] = "hybrid"
 
-        final_movies.append(movie)
+        movie[
+            "reasons"
+        ] = (
+            RecommendationExplainer.generate(
+                movie
+            )
+        )
 
+        final_movies.append(movie)
 
     return final_movies

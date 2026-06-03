@@ -34,7 +34,9 @@ def get_similar_movies(movie_title):
                 recommended_movie["movie_id"]
             ),
             "title": recommended_movie["title"],
-            "genres": recommended_movie["genres"]
+            "genres": recommended_movie["genres"],
+            "score": round(float(movie[1]), 4),
+            "recommendation_source": "content_based"
         })
 
     return recommendations

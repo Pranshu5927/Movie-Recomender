@@ -38,6 +38,11 @@ export const recommendationsAPI = {
     api.get(`/recommendations/content?movie_title=${encodeURIComponent(title)}`),
 }
 
+export const semanticAPI = {
+  search: (query, limit = 10) =>
+    api.get('/search/semantic', { params: { query, limit } }),
+}
+
 export const ratingsAPI = {
   rate: (movieId, rating) => api.post('/rate', { movie_id: movieId, rating }),
 }

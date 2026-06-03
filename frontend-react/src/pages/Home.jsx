@@ -14,7 +14,17 @@ export default function Home() {
 
   useEffect(() => {
     recommendationsAPI.getHomepage()
-      .then(res => setSections(res.data))
+      .then(res => {
+        const data = res.data
+        const hybridMovies = data?.hybrid?.movies
+        if (hybridMovies?.length > 0) {
+          const maxScore = Math.max(...hybridMovies.map(m => m.hybrid_score ?? 0))
+          if (maxScore > 0) {
+            hybridMovies.forEach(m => { m.score = +(m.hybrid_score / maxScore).toFixed(4) })
+          }
+        }
+        setSections(data)
+      })
       .catch(() => setError('Could not load recommendations. Is the backend running?'))
       .finally(() => setLoading(false))
   }, [])

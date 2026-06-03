@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { recommendationsAPI, ratingsAPI, watchlistAPI } from '../api/api'
 import MovieCard from './MovieCard'
-import { getGenreGradient, getCleanTitle, getYear, getGenres } from '../utils/movieUtils'
+import { getGenreGradient, getCleanTitle, getYear, getGenres, formatScore } from '../utils/movieUtils'
 import './MovieModal.css'
 
 export default function MovieModal({ movie, onClose, onMovieClick }) {
@@ -12,12 +12,13 @@ export default function MovieModal({ movie, onClose, onMovieClick }) {
   const [wlLoading, setWlLoading] = useState(false)
   const [similar, setSimilar] = useState([])
   const [similarLoading, setSimilarLoading] = useState(true)
-  const [toast, setToast] = useState('')
+  const [toast, setToast] = useState('')  
 
   const cleanTitle = getCleanTitle(movie.title)
   const year = getYear(movie.title)
   const genres = getGenres(movie.genres)
   const gradient = getGenreGradient(movie.genres)
+  const scoreInfo = formatScore(movie)
 
   useEffect(() => {
     document.body.style.overflow = 'hidden'
@@ -119,12 +120,18 @@ export default function MovieModal({ movie, onClose, onMovieClick }) {
                 <span key={g} className="modal-genre-tag">{g}</span>
               ))}
             </div>
-            {movie.score && (
+            {scoreInfo && (
               <div className="modal-score">
-                <span className="score-star">★</span>
-                {Number(movie.score).toFixed(2)}
-                {movie.vote_count && (
-                  <span className="score-votes"> ({movie.vote_count.toLocaleString()})</span>
+                {scoreInfo.type === 'rating' ? (
+                  <>
+                    <span className="score-star">★</span>
+                    {Number(movie.score).toFixed(2)}
+                    {movie.vote_count && (
+                      <span className="score-votes"> ({movie.vote_count.toLocaleString()})</span>
+                    )}
+                  </>
+                ) : (
+                  <span className="score-match">{scoreInfo.label}</span>
                 )}
               </div>
             )}

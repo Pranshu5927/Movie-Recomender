@@ -30,7 +30,8 @@ export function getGenreGradient(genres) {
 }
 
 export function getCleanTitle(title) {
-  return title?.replace(/\s*\(\d{4}\)\s*$/, '') || title || 'Unknown'
+  const withoutYear = title?.replace(/\s*\(\d{4}\)\s*$/, '') || title || 'Unknown'
+  return withoutYear.replace(/^(.+),\s*(The|A|An)$/i, '$2 $1')
 }
 
 export function getYear(title) {
@@ -40,4 +41,16 @@ export function getYear(title) {
 
 export function getGenres(genres) {
   return (genres || '').split('|').map(g => g.trim()).filter(Boolean)
+}
+
+export function formatScore(movie) {
+  const { score, recommendation_source } = movie
+  if (score == null) return null
+  if (recommendation_source === 'popularity') {
+    return { label: `★ ${Number(score).toFixed(1)}`, type: 'rating' }
+  }
+  if (score >= 0 && score <= 1) {
+    return { label: `${Math.round(score * 100)}% Match`, type: 'match' }
+  }
+  return null
 }
