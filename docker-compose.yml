@@ -28,7 +28,9 @@ services:
       dockerfile: backend/Dockerfile
     container_name: movie-recommender-backend
     environment:
-      DATABASE_URL: postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-postgres}@postgres:5432/${DB_NAME:-movie_recommender}
+      DATABASE_HOST: postgres
+      DATABASE_USER: ${DB_USER:-postgres}
+      DATABASE_NAME: ${DB_NAME:-movie_recommender}
       DATABASE_PASSWORD: ${DB_PASSWORD:-postgres}
       SECRET_KEY: ${SECRET_KEY:-dev-secret-key-change-in-production}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-sk-proj-required}
@@ -39,6 +41,7 @@ services:
         condition: service_healthy
     volumes:
       - ./backend:/app/backend
+      - ./data:/app/data:ro
     networks:
       - movie-network
     command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload

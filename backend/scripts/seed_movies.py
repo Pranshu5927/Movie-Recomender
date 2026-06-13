@@ -1,28 +1,15 @@
+from pathlib import Path
+
 import pandas as pd
-import os
-
-from dotenv import load_dotenv
 from sqlalchemy import create_engine
-from sqlalchemy.engine import URL
 
-load_dotenv()
+from db.database import DATABASE_URL
 
-DATABASE_PASSWORD = os.getenv("DATABASE_PASSWORD")
-
-DATABASE_URL = URL.create(
-    drivername="postgresql+psycopg2",
-    username="postgres",
-    password=DATABASE_PASSWORD,
-    host="127.0.0.1",
-    port=5432,
-    database="movie_recommender"
-)
-
-# DATABASE_URL = os.getenv("DATABASE_URL")
+DATA_DIR = Path(__file__).resolve().parent.parent / "data" / "ml-latest-small"
 
 engine = create_engine(DATABASE_URL)
 
-df = pd.read_csv("../data/ml-latest-small/movies.csv")
+df = pd.read_csv(DATA_DIR / "movies.csv")
 
 # Rename column to match PostgreSQL schema
 df = df.rename(columns={

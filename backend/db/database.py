@@ -8,14 +8,17 @@ from sqlalchemy.engine import URL
 load_dotenv()
 
 DATABASE_PASSWORD = os.getenv("DATABASE_PASSWORD")
+DATABASE_HOST = os.getenv("DATABASE_HOST", "postgres")  # Default to Docker service name
+DATABASE_USER = os.getenv("DATABASE_USER", "postgres")
+DATABASE_NAME = os.getenv("DATABASE_NAME", "movie_recommender")
 
 DATABASE_URL = URL.create(
     drivername="postgresql+psycopg2",
-    username="postgres",
+    username=DATABASE_USER,
     password=DATABASE_PASSWORD,
-    host="127.0.0.1",
+    host=DATABASE_HOST,
     port=5432,
-    database="movie_recommender"
+    database=DATABASE_NAME
 )
 
 engine = create_engine(DATABASE_URL)

@@ -1,32 +1,23 @@
+import json
+
 import numpy as np
 import pandas as pd
-import psycopg2
 
 from sentence_transformers import SentenceTransformer
 from sklearn.metrics.pairwise import cosine_similarity
 
-import os 
-from dotenv import load_dotenv
+from sqlalchemy import create_engine
 
-load_dotenv()
-DATABASE_PASSWORD = os.getenv("DATABASE_PASSWORD")
+from db.database import DATABASE_URL
 
 model = SentenceTransformer(
     "all-MiniLM-L6-v2"
 )
 
-def get_connection():
-    return psycopg2.connect(
-        host="localhost",
-        database="movie_recommender",
-        user="postgres",
-        password=DATABASE_PASSWORD
-    )
+engine = create_engine(DATABASE_URL)
 
 
 def load_movie_embeddings():
-
-    conn = get_connection()
 
     query = """
     SELECT
@@ -39,9 +30,7 @@ def load_movie_embeddings():
         ON m.movie_id = me.movie_id
     """
 
-    movies = pd.read_sql(query, conn)
-
-    conn.close()
+    movies = pd.read_sql(query, engine)
 
     return movies
 
@@ -54,7 +43,7 @@ def semantic_search(
     scores = []
     for _, row in movies.iterrows():
         movie_embedding = np.array(
-            row["embedding"]
+            json.loads(row["embedding"])
         )
 
         score = cosine_similarity(
