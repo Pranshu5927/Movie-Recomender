@@ -1,0 +1,65 @@
+version: '3.9'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: movie-recommender-db
+    environment:
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+      POSTGRES_DB: ${DB_NAME:-movie_recommender}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - movie-network
+
+  # FastAPI Backend
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: movie-recommender-backend
+    environment:
+      DATABASE_URL: postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-postgres}@postgres:5432/${DB_NAME:-movie_recommender}
+      DATABASE_PASSWORD: ${DB_PASSWORD:-postgres}
+      SECRET_KEY: ${SECRET_KEY:-dev-secret-key-change-in-production}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:?Error: OPENAI_API_KEY not set}
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app/backend
+    networks:
+      - movie-network
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+
+  # React Frontend
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend-react/Dockerfile
+    container_name: movie-recommender-frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    networks:
+      - movie-network
+
+volumes:
+  postgres_data:
+    driver: local
+
+networks:
+  movie-network:
+    driver: bridge

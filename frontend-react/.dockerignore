@@ -1,0 +1,26 @@
+# Node modules
+node_modules/
+npm-debug.log
+yarn-error.log
+
+# Build output
+dist/
+.vite/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# Git
+.git
+.gitignore
+
+# Environment
+.env
+.env.local
+
+# Misc
+.turbo/
