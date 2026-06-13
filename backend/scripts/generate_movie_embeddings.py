@@ -4,19 +4,21 @@ import psycopg2
 from psycopg2.extras import Json
 from sentence_transformers import SentenceTransformer
 
-import os
-from dotenv import load_dotenv
-
-load_dotenv()
+from db.database import (
+    DATABASE_HOST,
+    DATABASE_USER,
+    DATABASE_NAME,
+    DATABASE_PASSWORD
+)
 
 # -----------------------------
 # Database Connection
 # -----------------------------
 conn = psycopg2.connect(
-    host="localhost",
-    database="movie_recommender",
-    user="postgres",
-    password=os.getenv("DATABASE_PASSWORD")
+    host=DATABASE_HOST,
+    database=DATABASE_NAME,
+    user=DATABASE_USER,
+    password=DATABASE_PASSWORD
 )
 
 cursor = conn.cursor()

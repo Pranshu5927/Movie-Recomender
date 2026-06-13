@@ -1,33 +1,16 @@
+from pathlib import Path
+
 import pandas as pd
-import os
-
-from dotenv import load_dotenv
 from sqlalchemy import create_engine
-from sqlalchemy.engine import URL
 
-# Load environment variables
-load_dotenv()
+from db.database import DATABASE_URL
 
-# Get DB password
-DATABASE_PASSWORD = os.getenv("DATABASE_PASSWORD")
+DATA_DIR = Path(__file__).resolve().parent.parent / "data" / "ml-latest-small"
 
-# Create database URL safely
-DATABASE_URL = URL.create(
-    drivername="postgresql+psycopg2",
-    username="postgres",
-    password=DATABASE_PASSWORD,
-    host="127.0.0.1",
-    port=5432,
-    database="movie_recommender"
-)
-
-# DATABASE_URL = os.getenv("DATABASE_URL")
-
-# Create SQLAlchemy engine
 engine = create_engine(DATABASE_URL)
 
 # Read ratings CSV
-df = pd.read_csv("../data/ml-latest-small/ratings.csv")
+df = pd.read_csv(DATA_DIR / "ratings.csv")
 
 # Rename columns to match PostgreSQL schema
 df = df.rename(columns={
@@ -40,7 +23,9 @@ df.to_sql(
     "ml_ratings",
     engine,
     if_exists="append",
-    index=False
+    index=False,
+    chunksize=1000,
+    method="multi"
 )
 
 print("Ratings seeded successfully!")

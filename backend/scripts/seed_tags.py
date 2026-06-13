@@ -1,31 +1,16 @@
+from pathlib import Path
+
 import pandas as pd
-
 from sqlalchemy import create_engine
-from sqlalchemy.engine import URL
-from dotenv import load_dotenv
 
-import os
+from db.database import DATABASE_URL
 
 
 # ---------------------------------
-# LOAD ENV VARIABLES
+# PATHS
 # ---------------------------------
-load_dotenv()
+DATA_DIR = Path(__file__).resolve().parent.parent / "data" / "ml-latest-small"
 
-# Get DB password
-DATABASE_PASSWORD = os.getenv("DATABASE_PASSWORD")
-
-# Create database URL safely
-DATABASE_URL = URL.create(
-    drivername="postgresql+psycopg2",
-    username="postgres",
-    password=DATABASE_PASSWORD,
-    host="127.0.0.1",
-    port=5432,
-    database="movie_recommender"
-)
-
-# DATABASE_URL = os.getenv("DATABASE_URL")
 
 # ---------------------------------
 # CREATE ENGINE
@@ -36,9 +21,7 @@ engine = create_engine(DATABASE_URL)
 # ---------------------------------
 # LOAD CSV
 # ---------------------------------
-df = pd.read_csv(
-    "../data/ml-latest-small/tags.csv"
-)
+df = pd.read_csv(DATA_DIR / "tags.csv")
 
 
 # ---------------------------------

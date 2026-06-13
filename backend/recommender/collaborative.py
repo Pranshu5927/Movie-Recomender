@@ -22,60 +22,67 @@ engine = create_engine(DATABASE_URL)
 # ---------------------------------
 # LOAD RATINGS
 # ---------------------------------
-ratings_df = pd.read_sql(
-    "SELECT * FROM ml_ratings",
-    engine
-)
+try:
+    ratings_df = pd.read_sql(
+        "SELECT * FROM ml_ratings",
+        engine
+    )
 
 
-movies_df = pd.read_sql(
-    "SELECT * FROM movies",
-    engine
-)
+    movies_df = pd.read_sql(
+        "SELECT * FROM movies",
+        engine
+    )
 
 
-# ---------------------------------
-# CREATE USER-MOVIE MATRIX
-# ---------------------------------
-user_movie_matrix = ratings_df.pivot_table(
-    index="user_id",
-    columns="movie_id",
-    values="rating"
-).fillna(0)
+    # ---------------------------------
+    # CREATE USER-MOVIE MATRIX
+    # ---------------------------------
+    user_movie_matrix = ratings_df.pivot_table(
+        index="user_id",
+        columns="movie_id",
+        values="rating"
+    ).fillna(0)
 
 
-# ---------------------------------
-# SPARSE MATRIX
-# ---------------------------------
-sparse_matrix = csr_matrix(
-    user_movie_matrix.values
-)
+    # ---------------------------------
+    # SPARSE MATRIX
+    # ---------------------------------
+    sparse_matrix = csr_matrix(
+        user_movie_matrix.values
+    )
 
 
-# ---------------------------------
-# SVD MODEL
-# ---------------------------------
-svd = TruncatedSVD(
-    n_components=50,
-    random_state=42
-)
+    # ---------------------------------
+    # SVD MODEL
+    # ---------------------------------
+    svd = TruncatedSVD(
+        n_components=50,
+        random_state=42
+    )
 
-matrix_decomposition = svd.fit_transform(
-    sparse_matrix
-)
-
-
-# ---------------------------------
-# USER SIMILARITY
-# ---------------------------------
-user_similarity = cosine_similarity(
-    matrix_decomposition
-)
+    matrix_decomposition = svd.fit_transform(
+        sparse_matrix
+    )
 
 
-print(
-    "Collaborative filtering engine loaded!"
-)
+    # ---------------------------------
+    # USER SIMILARITY
+    # ---------------------------------
+    user_similarity = cosine_similarity(
+        matrix_decomposition
+    )
+
+
+    print(
+        "Collaborative filtering engine loaded!"
+    )
+except Exception as e:
+    print(f"Warning: Could not load collaborative filtering data at startup: {e}")
+    ratings_df = None
+    movies_df = None
+    user_movie_matrix = None
+    user_similarity = None
 
 def get_collaborative_recommendations(
     user_id,
@@ -85,7 +92,7 @@ def get_collaborative_recommendations(
     # ---------------------------------
     # FIND USER INDEX
     # ---------------------------------
-    if user_id not in user_movie_matrix.index:
+    if user_movie_matrix is None or user_id not in user_movie_matrix.index:
         return []
 
 
